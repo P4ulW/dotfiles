@@ -1,0 +1,44 @@
+[user]
+	name = Paul Werner
+	email = paul.werner@uni-goettingen.de
+
+[core]
+	compression = 9
+	preloadIndex = true
+
+	pager = delta
+
+	editor=nvim
+
+[init]
+	defaulBranch=dev
+
+[status]
+	branch = true
+	showStash = true
+	showUntrackedFiles = all
+
+[diff]
+	context = 3
+	renames = copies
+	interHunkContext = 10
+
+[core]
+
+[interactive]
+    diffFilter = delta --color-only
+
+[delta]
+    navigate = true  # use n and N to move between diff sections
+
+[merge]
+    conflictstyle = zdiff3
+
+[push]
+	autoSetupRemote=true
+	default = current
+	followTags = true
+
+[pull]
+	default = current
+	rebase = true

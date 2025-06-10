@@ -14,6 +14,7 @@ export PATH="~/.local/bin:$PATH"
 export PATH="~/.venv/bin/:$PATH"
 export PATH="/opt/kitty/kitty.app/bin/:$PATH"
 export PATH="~/.cargo/bin/:$PATH"
+export EDITOR="nvim"
 source $ZSH/oh-my-zsh.sh
 source ~/venv/bin/activate
 # alias nvim="/home/paulw/appimages/nvim.appimage"
@@ -21,10 +22,22 @@ alias i3lock="python ~/.config/i3/i3pylock.py"
 alias fd=fdfind
 alias pdfs="~/pdf_search.sh"
 
-alias gs="git status"
+alias vim="nvim"
+
+# GIT
+alias gs="git status --short"
+
+alias gd="git diff --output-indicator-new=' ' --output-indicator-old=' '"
+
 alias gu="git pull"
 alias gp="git push"
+
+
+alias ga="git add"
+alias gc="git commit"
+
 alias gl="git log --all --graph --pretty=format:'%C(magenta)%h %C(white) %an %ar%C(auto) %D%n%s%n'"
+alias gb="git branch"
 
 # yazi
 function y() {
@@ -34,3 +47,7 @@ function y() {
 	[ -n "$cwd" ] && [ "$cwd" != "$PWD" ] && builtin cd -- "$cwd"
 	rm -f -- "$tmp"
 }
+alias gi="git init"
+alias gcl"git clone"
+
+alias pip="uv pip"
