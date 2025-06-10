@@ -13,21 +13,27 @@ set $term /opt/kitty/kitty.app/bin/kitty
 # Your preferred application launcher
 # Note: pass the final command to swaymsg so that the resulting window can be opened
 # on the original workspace that the command was run on.
-set $menu dmenu_path | dmenu -i -l 5 -fn 'Iosevka Aile-14' | xargs i3-msg exec --
+set $menu dmenu_path \
+| dmenu -i -l 5 -fn 'IosevkaMenlo Nerd Font-18' -nb '#232136' -nf '#E0DEF4' -sb '#44415a' -sf '#f6c177'\
+| xargs i3-msg exec --
 
 ### Fonts
-font pango:Iosevka Aile Medium 10
+font pango:IosevkaMenlo Nerd Font 13
 
 ### Output configuration
 exec_always ~/.screenlayout/test.sh
 
 ### Locking
-# exec --no-startup-id xss-lock --transfer-sleep-lock -- i3lock --nofork
-bindsym $mod+t exec "convert /home/paulw/Pictures/wallpaper.jpg RGB:- | i3lock --raw 3840x2160:rgb --image /dev/stdin"
+exec --no-startup-id xss-lock --transfer-sleep-lock -- i3lock --nofork
+bindsym $mod+t exec "convert /home/paulw/Pictures/lock.png RGB:- | i3lock --raw 3840x2160:rgb --image /dev/stdin"
 
+exec_always i3-layouts
 ### Display Wallpaper
-exec_always feh --bg-fill /home/paulw/Pictures/wallpaper.jpg 
+exec_always feh --bg-fill /home/paulw/Pictures/wallpaper.png 
+# exec_always xrandr --output DP-4 --auto --primary --right-of HDMI-2
 exec_always xrandr --output HDMI-2 --auto --primary
+# exec_always xrandr --output HDMI-2 --auto  --primary
+exec xautolock -detectsleep -time 5 -locker \python ~/.config/i3/i3pylock.py\
 
 
 ### Key bindings
@@ -83,29 +89,48 @@ bindsym $mod+Shift+e exec "i3-nagbar -t warning -m 'You pressed the exit shortcu
     bindsym $mod+Shift+Right move right
 #
 # Workspaces:
+set $ws1 "1:browser"
+set $ws2 "2:files"
+set $ws3 "3:term"
+set $ws4 "4:chat"
+set $ws5 "5:misc"
+set $ws6 "6:misc"
+set $ws7 "7:misc"
+set $ws8 "R:misc"
+set $ws9 "9:misc"
+set $ws10 "10:misc"
+
+set $i3l spiral to workspace $ws1
+set $i3l spiral to workspace $ws2
+set $i4l spiral to workspace $ws3
+set $i3l spiral to workspace $ws4
+set $i3l spiral to workspace $ws4
+set $i3l spiral to workspace $ws5
+set $i3l spiral to workspace $ws6
+set $i3l spiral to workspace $ws7
 #
     # Switch to workspace
-    bindsym $mod+1 workspace number 1
-    bindsym $mod+2 workspace number 2
-    bindsym $mod+3 workspace number 3
-    bindsym $mod+4 workspace number 4
-    bindsym $mod+5 workspace number 5
-    bindsym $mod+6 workspace number 6
-    bindsym $mod+7 workspace number 7
-    bindsym $mod+8 workspace number 8
-    bindsym $mod+9 workspace number 9
-    bindsym $mod+0 workspace number 10
+    bindsym $mod+1 workspace number $ws1
+    bindsym $mod+2 workspace number $ws2
+    bindsym $mod+3 workspace number $ws3
+    bindsym $mod+4 workspace number $ws4
+    bindsym $mod+5 workspace number $ws5
+    bindsym $mod+6 workspace number $ws6
+    bindsym $mod+7 workspace number $ws7
+    bindsym $mod+8 workspace number $ws8
+    bindsym $mod+9 workspace number $ws9
+    bindsym $mod+0 workspace number $ws10
     # Move focused container to workspace
-    bindsym $mod+Shift+1 move container to workspace number 1
-    bindsym $mod+Shift+2 move container to workspace number 2
-    bindsym $mod+Shift+3 move container to workspace number 3
-    bindsym $mod+Shift+4 move container to workspace number 4
-    bindsym $mod+Shift+5 move container to workspace number 5
-    bindsym $mod+Shift+6 move container to workspace number 6
-    bindsym $mod+Shift+7 move container to workspace number 7
-    bindsym $mod+Shift+8 move container to workspace number 8
-    bindsym $mod+Shift+9 move container to workspace number 9
-    bindsym $mod+Shift+0 move container to workspace number 10
+    bindsym $mod+Shift+1 move container to workspace number $ws1
+    bindsym $mod+Shift+2 move container to workspace number $ws2
+    bindsym $mod+Shift+3 move container to workspace number $ws3
+    bindsym $mod+Shift+4 move container to workspace number $ws4
+    bindsym $mod+Shift+5 move container to workspace number $ws5
+    bindsym $mod+Shift+6 move container to workspace number $ws6
+    bindsym $mod+Shift+7 move container to workspace number $ws7
+    bindsym $mod+Shift+8 move container to workspace number $ws8
+    bindsym $mod+Shift+9 move container to workspace number $ws9
+    bindsym $mod+Shift+0 move container to workspace number $ws10
     # Note: workspaces can have any name you want, not just numbers.
     # We just use 1-10 as the default.
 #
