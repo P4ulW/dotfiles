@@ -52,3 +52,7 @@ function y() {
 	[ -n "$cwd" ] && [ "$cwd" != "$PWD" ] && builtin cd -- "$cwd"
 	rm -f -- "$tmp"
 }
+alias gi="git init"
+alias gcl"git clone"
+
+alias pip="uv pip"
