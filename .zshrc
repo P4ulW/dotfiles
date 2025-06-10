@@ -39,6 +39,11 @@ alias gc="git commit"
 alias gl="git log --all --graph --pretty=format:'%C(magenta)%h %C(white) %an %ar%C(auto) %D%n%s%n'"
 alias gb="git branch"
 
+alias gi="git init"
+alias gcl"git clone"
+
+alias pip="uv pip"
+
 # yazi
 function y() {
 	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
