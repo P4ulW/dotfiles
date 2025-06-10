@@ -25,11 +25,11 @@ exec_always ~/.screenlayout/test.sh
 
 ### Locking
 exec --no-startup-id xss-lock --transfer-sleep-lock -- i3lock --nofork
-bindsym $mod+t exec "convert /home/paulw/Pictures/lock.png RGB:- | i3lock --raw 3840x2160:rgb --image /dev/stdin"
+bindsym $mod+t exec "convert /home/paulw/Pictures/lock.png RGB:- | i3lock --raw 2560:1440 --image /dev/stdin"
 
 exec_always i3-layouts
 ### Display Wallpaper
-exec_always feh --bg-fill /home/paulw/Pictures/wallpaper.png 
+exec_always feh --bg-fill /home/paulw/Pictures/wallpaper.jpg 
 # exec_always xrandr --output DP-4 --auto --primary --right-of HDMI-2
 exec_always xrandr --output HDMI-2 --auto --primary
 # exec_always xrandr --output HDMI-2 --auto  --primary
