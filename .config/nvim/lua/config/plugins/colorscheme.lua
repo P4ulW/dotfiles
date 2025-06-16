@@ -29,7 +29,7 @@ return {
   name = "rose-pine",
   config = function()
     require("rose-pine").setup({
-      variant = "moon",
+      variant = "main",
       styles = {
         italic = true,
         transparency = true,
