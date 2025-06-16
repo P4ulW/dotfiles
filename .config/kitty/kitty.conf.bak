@@ -40,6 +40,6 @@ bold_italic_font family='IosevkaMenlo Nerd Font' style='Medium Italic'
 
 
 # BEGIN_KITTY_THEME
-# Rosé Pine Moon
+# Kanagawa
 include current-theme.conf
 # END_KITTY_THEME
