@@ -11,12 +11,12 @@ plugins=(git)
 
 export PATH="~/tmux:$PATH"
 export PATH="~/.local/bin:$PATH"
-export PATH="~/.venv/bin/:$PATH"
+export PATH="~/.venv3.13/bin/:$PATH"
 export PATH="/opt/kitty/kitty.app/bin/:$PATH"
 export PATH="~/.cargo/bin/:$PATH"
 export EDITOR="nvim"
 source $ZSH/oh-my-zsh.sh
-source ~/venv/bin/activate
+source ~/.venv3.13/bin/activate
 # alias nvim="/home/paulw/appimages/nvim.appimage"
 alias i3lock="python ~/.config/i3/i3pylock.py"
 alias fd=fdfind
@@ -58,3 +58,6 @@ alias gcl"git clone"
 alias pip="uv pip"
 
 . "$HOME/.local/bin/env"
+
+alias ls="exa --icons"
+alias lsa="exa --icons -a -l"
