@@ -89,16 +89,16 @@ bindsym $mod+Shift+e exec "i3-nagbar -t warning -m 'You pressed the exit shortcu
     bindsym $mod+Shift+Right move right
 #
 # Workspaces:
-set $ws1 "1:browser"
-set $ws2 "2:files"
-set $ws3 "3:term"
-set $ws4 "4:chat"
-set $ws5 "5:misc"
-set $ws6 "6:misc"
-set $ws7 "7:misc"
-set $ws8 "R:misc"
-set $ws9 "9:misc"
-set $ws10 "10:misc"
+set $ws1   "1 | 󰊯 "
+set $ws2   "2 |  "
+set $ws3   "3 |  "
+set $ws4   "4 | 󱋊 "
+set $ws5   "5 |  "
+set $ws6   "6 |  "
+set $ws7   "7 |  "
+set $ws8   "R |  "
+set $ws9   "9 |  "
+set $ws10 "10 |  "
 
 set $i3l spiral to workspace $ws1
 set $i3l spiral to workspace $ws2
