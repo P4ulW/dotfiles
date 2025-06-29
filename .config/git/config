@@ -11,7 +11,7 @@
 	editor=nvim
 
 [init]
-	defaulBranch=dev
+	defaulBranch = dev
 
 [status]
 	branch = true

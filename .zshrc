@@ -56,3 +56,5 @@ alias gi="git init"
 alias gcl"git clone"
 
 alias pip="uv pip"
+
+. "$HOME/.local/bin/env"
