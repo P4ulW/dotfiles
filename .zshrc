@@ -16,7 +16,7 @@ export PATH="/opt/kitty/kitty.app/bin/:$PATH"
 export PATH="~/.cargo/bin/:$PATH"
 export EDITOR="nvim"
 source $ZSH/oh-my-zsh.sh
-source ~/venv/bin/activate
+source ~/.venv/bin/activate
 # alias nvim="/home/paulw/appimages/nvim.appimage"
 alias i3lock="python ~/.config/i3/i3pylock.py"
 alias fd=fdfind
