@@ -59,5 +59,5 @@ alias pip="uv pip"
 
 . "$HOME/.local/bin/env"
 
-alias ls="exa --icons"
-alias lsa="exa --icons -a -l"
+alias ls="eza --icons"
+alias lsa="eza --icons -a -l"
