@@ -65,3 +65,12 @@ function y() {
 
 # zoxide
 eval "$(zoxide init zsh)"
+alias pip="uv pip"
+
+. "$HOME/.local/bin/env"
+alias pip="uv pip"
+
+. "$HOME/.local/bin/env"
+
+alias ls="exa --icons"
+alias lsa="exa --icons -a -l"
