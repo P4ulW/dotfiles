@@ -9,14 +9,15 @@ export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME="robbyrussell"
 plugins=(git)
 
+export LD_LIBRARY_PATH=$NIX_LD_LIBRARY_PATH
 export PATH="~/tmux:$PATH"
 export PATH="~/.local/bin:$PATH"
-export PATH="~/.venv3.13/bin/:$PATH"
+export PATH="~/.venv_nixos/bin/:$PATH"
 export PATH="/opt/kitty/kitty.app/bin/:$PATH"
 export PATH="~/.cargo/bin/:$PATH"
 export EDITOR="nvim"
 source $ZSH/oh-my-zsh.sh
-source ~/.venv3.13/bin/activate
+source ~/.venv_nixos/bin/activate
 # alias nvim="/home/paulw/appimages/nvim.appimage"
 alias i3lock="python ~/.config/i3/i3pylock.py"
 alias fd=fdfind
@@ -54,6 +55,9 @@ alias pip="uv pip"
 alias ls="exa --icons"
 alias lsa="exa --icons -a -l"
 
+alias pip="uv pip"
+. "$HOME/.local/bin/env"
+
 # yazi
 function y() {
 	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
@@ -65,12 +69,3 @@ function y() {
 
 # zoxide
 eval "$(zoxide init zsh)"
-alias pip="uv pip"
-
-. "$HOME/.local/bin/env"
-alias pip="uv pip"
-
-. "$HOME/.local/bin/env"
-
-alias ls="exa --icons"
-alias lsa="exa --icons -a -l"
