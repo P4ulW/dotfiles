@@ -8,18 +8,15 @@
 
 window#waybar {
   transition-property: background-color;
-  transition-duration: 0.5s;
-  /* background-color: #1e1e2e; */
-  /* background-color: #181825; */
-  background-color: #232136;
-  /* background-color: rgba(24, 24, 37, 0.6); */
+  transition-duration: 0.3s;
+  background-color: rgba(0, 0, 0, 0);
 }
 
 #workspaces button {
   padding: 0.3rem 0.6rem;
   margin: 0.4rem 0.25rem;
   border-radius: 6px;
-  /* background-color: #181825; */
+  /* border-color: #ff0000; */
   background-color: #2a273f;
   color: #e0def4;
 }
