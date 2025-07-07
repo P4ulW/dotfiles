@@ -2,27 +2,3 @@
 edit = [
 	{run='nvim "$@"', block=true}
 ]
-
-[plugin]
-preloaders = [
-  # Do not preload files in mounted locations:
-  # Environment variable won't work here.
-  # Using absolute path instead.
-  { name = "/run/user/1000/gvfs/**/*", run = "noop" },
-
-  # For mounted location for hard disk/drive
-  { name = "/run/media/USER_NAME/**/*", run = "noop" },
-  #... the rest of preloaders
-]
-previewers = [
-  # Allow to preview folder.
-  { name = "*/", run = "folder", sync = true },
-  # Do not previewing files in mounted locations (uncomment to except text file):
-  # { mime = "{text/*,application/x-subrip}", run = "code" },
-  # Using absolute path.
-  { name = "/run/user/1000/gvfs/**/*", run = "noop" },
-
-  # For mounted hard disk.
-  { name = "/run/media/USER_NAME/**/*", run = "noop" },
-  #... the rest of previewers
-]
