@@ -16,7 +16,7 @@
 --       theme = "dragon",      -- Load "wave" theme
 --       background = {         -- map the value of 'background' option to a theme
 --         dark = "dragon",     -- try "dragon" !
---         light = "lotus"
+--         light = "dragon"
 --       },
 --     })
 --     vim.cmd("colorscheme kanagawa")
