@@ -9,14 +9,15 @@ export ZSH="$HOME/.oh-my-zsh"
 ZSH_THEME="robbyrussell"
 plugins=(git)
 
+export LD_LIBRARY_PATH=$NIX_LD_LIBRARY_PATH
 export PATH="~/tmux:$PATH"
 export PATH="~/.local/bin:$PATH"
-export PATH="~/.venv/bin/:$PATH"
+export PATH="~/.venv_nixos/bin/:$PATH"
 export PATH="/opt/kitty/kitty.app/bin/:$PATH"
 export PATH="~/.cargo/bin/:$PATH"
 export EDITOR="nvim"
 source $ZSH/oh-my-zsh.sh
-source ~/venv/bin/activate
+source ~/.venv_nixos/bin/activate
 # alias nvim="/home/paulw/appimages/nvim.appimage"
 alias i3lock="python ~/.config/i3/i3pylock.py"
 alias fd=fdfind
@@ -44,14 +45,6 @@ alias gcl"git clone"
 
 alias pip="uv pip"
 
-# yazi
-function y() {
-	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
-	yazi "$@" --cwd-file="$tmp"
-	IFS= read -r -d '' cwd < "$tmp"
-	[ -n "$cwd" ] && [ "$cwd" != "$PWD" ] && builtin cd -- "$cwd"
-	rm -f -- "$tmp"
-}
 alias gi="git init"
 alias gcl"git clone"
 
@@ -61,3 +54,19 @@ alias pip="uv pip"
 
 alias ls="exa --icons"
 alias lsa="exa --icons -a -l"
+
+alias pip="uv pip"
+. "$HOME/.local/bin/env"
+
+# yazi
+function y() {
+	local tmp="$(mktemp -t "yazi-cwd.XXXXXX")" cwd
+	yazi "$@" --cwd-file="$tmp"
+	IFS= read -r -d '' cwd < "$tmp"
+	[ -n "$cwd" ] && [ "$cwd" != "$PWD" ] && builtin cd -- "$cwd"
+	rm -f -- "$tmp"
+}
+
+alias pip="uv pip"
+
+. "$HOME/.local/bin/env"

@@ -1,24 +1,24 @@
 * {
   min-height: 0;
   min-width: 0;
-  font-family: Lexend, "Iosevka Nerd Font";
+  font-family: Lexend, "IosevkaMenlo Nerd Font";
   font-size: 18px;
   font-weight: 500;
 }
 
 window#waybar {
-  transition-property: background-color;
-  transition-duration: 0.5s;
+  /* transition-property: background-color; */
+  /* transition-duration: 0.5s; */
   /* background-color: #1e1e2e; */
   /* background-color: #181825; */
-  background-color: #232136;
-  /* background-color: rgba(24, 24, 37, 0.6); */
+  /* background-color: #232136; */
+  background-color: rgba(255, 255, 255, 0);
 }
 
 #workspaces button {
   padding: 0.3rem 0.6rem;
   margin: 0.4rem 0.25rem;
-  border-radius: 6px;
+  border-radius: 0px;
   /* background-color: #181825; */
   background-color: #2a273f;
   color: #e0def4;
@@ -52,7 +52,7 @@ window#waybar {
 #mpris {
   padding: 0.3 2.6rem;
   margin: 0.4rem 0.25rem;
-  border-radius: 6px;
+  border-radius: 0px;
   background-color: #2a283e;
   color: #3e8fb0;
 }
@@ -112,5 +112,5 @@ window#waybar.empty #window {
 
 tooltip {
   background-color: #2a283e;
-  border: 2px solid #9ccfd8;
+  border: 2px solid #ea9a97;
 }
