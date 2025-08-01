@@ -1,3 +1,5 @@
+confirm_os_window_close 0
+
 font_size 16.0
 # modify_font cell_height 100%
 
@@ -8,6 +10,8 @@ wayland_enable_ime no
 cursor_trail 10
 cursor_trail_decay 0.1 0.6
 cursor_trail_start_threshold 2
+
+background_opacity 0.9
 
 tab_bar_min_tabs            1
 tab_bar_edge                bottom
@@ -32,14 +36,14 @@ map kitty_mod+t     new_tab_with_cwd
 disable_ligatures always
 
 # BEGIN_KITTY_FONTS
-font_family      family='IosevkaMenlo Nerd Font' style=Light
-bold_font        family='IosevkaMenlo Nerd Font' style=Medium
-italic_font      family='IosevkaMenlo Nerd Font' style='Light Italic'
-bold_italic_font family='IosevkaMenlo Nerd Font' style='Medium Italic'
+font_family      family="IosevkaIBMLat550 Nerd Font"
+bold_font        auto
+italic_font      auto
+bold_italic_font auto
 # END_KITTY_FONTS
 
 
 # BEGIN_KITTY_THEME
-# Kanagawa_dragon
+# Rosé Pine Moon
 include current-theme.conf
 # END_KITTY_THEME

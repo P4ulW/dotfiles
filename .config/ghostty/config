@@ -6,3 +6,5 @@ font-family = "IosevkaMenlo Nerd Font"
 
 background-opacity = 0.9
 background-blur = 10
+
+confirm-close-surface = false
