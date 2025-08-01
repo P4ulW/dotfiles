@@ -1,0 +1,1820 @@
+diff --git a/.config/ghostty/config b/.config/ghostty/config
+new file mode 100644
+index 0000000..c91eaff
+--- /dev/null
++++ b/.config/ghostty/config
+@@ -0,0 +1,10 @@
++theme = rose-pine-moon
++
++font-size = 16
++
++font-family = "IosevkaMenlo Nerd Font"
++
++background-opacity = 0.9
++background-blur = 10
++
++confirm-close-surface = false
+diff --git a/.config/ghostty/shaders/WIP.glsl b/.config/ghostty/shaders/WIP.glsl
+new file mode 100644
+index 0000000..cf57917
+--- /dev/null
++++ b/.config/ghostty/shaders/WIP.glsl
+@@ -0,0 +1,136 @@
++float getSdfRectangle(in vec2 p, in vec2 xy, in vec2 b)
++{
++    vec2 d = abs(p - xy) - b;
++    return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
++}
++
++// Based on Inigo Quilez's 2D distance functions article: https://iquilezles.org/articles/distfunctions2d/
++// Potencially optimized by eliminating conditionals and loops to enhance performance and reduce branching
++
++float seg(in vec2 p, in vec2 a, in vec2 b, inout float s, float d) {
++    vec2 e = b - a;
++    vec2 w = p - a;
++    vec2 proj = a + e * clamp(dot(w, e) / dot(e, e), 0.0, 1.0);
++    float segd = dot(p - proj, p - proj);
++    d = min(d, segd);
++
++    float c0 = step(0.0, p.y - a.y);
++    float c1 = 1.0 - step(0.0, p.y - b.y);
++    float c2 = 1.0 - step(0.0, e.x * w.y - e.y * w.x);
++    float allCond = c0 * c1 * c2;
++    float noneCond = (1.0 - c0) * (1.0 - c1) * (1.0 - c2);
++    float flip = mix(1.0, -1.0, step(0.5, allCond + noneCond));
++    s *= flip;
++    return d;
++}
++
++float getSdfParallelogram(in vec2 p, in vec2 v0, in vec2 v1, in vec2 v2, in vec2 v3) {
++    float s = 1.0;
++    float d = dot(p - v0, p - v0);
++
++    d = seg(p, v0, v3, s, d);
++    d = seg(p, v1, v0, s, d);
++    d = seg(p, v2, v1, s, d);
++    d = seg(p, v3, v2, s, d);
++
++    return s * sqrt(d);
++}
++
++vec2 normalize(vec2 value, float isPosition) {
++    return (value * 2.0 - (iResolution.xy * isPosition)) / iResolution.y;
++}
++
++float antialising(float distance) {
++    return 1. - smoothstep(0., normalize(vec2(2., 2.), 0.).x, distance);
++}
++
++float determineStartVertexFactor(vec2 c, vec2 p) {
++    // Conditions using step
++    float condition1 = step(p.x, c.x) * step(c.y, p.y); // c.x < p.x && c.y > p.y
++    float condition2 = step(c.x, p.x) * step(p.y, c.y); // c.x > p.x && c.y < p.y
++
++    // If neither condition is met, return 1 (else case)
++    return 1.0 - max(condition1, condition2);
++}
++
++float determineStartVertexFactor2(vec2 c, vec2 p) {
++    // Conditions using step
++    float condition1 = step(p.x, c.x) * step(c.y, p.y); // c.x < p.x && c.y > p.y
++    float condition2 = step(c.x, p.x) * step(p.y, c.y); // c.x > p.x && c.y < p.y
++
++    // If neither condition is met, return 1 (else case)
++    return 1.0 - max(condition1, condition2);
++}
++
++float esAMenorB(float c, float p) {
++    // Conditions using step
++    return 1.0 - step(p, c); // c < p
++}
++
++vec2 getRectangleCenter(vec4 rectangle) {
++    return vec2(rectangle.x + (rectangle.z / 2.), rectangle.y - (rectangle.w / 2.));
++}
++float ease(float x) {
++    return pow(1.0 - x, 3.0);
++}
++
++const vec4 TRAIL_COLOR = vec4(1.0, 0.725, 0.161, 1.0);
++const vec4 TRAIL_COLOR_ACCENT = vec4(1.0, 0., 0., 1.0);
++const float DURATION = 0.3; //IN SECONDS
++
++void mainImage(out vec4 fragColor, in vec2 fragCoord)
++{
++    #if !defined(WEB)
++    fragColor = texture(iChannel0, fragCoord.xy / iResolution.xy);
++    #endif
++    // Normalization for fragCoord to a space of -1 to 1;
++    vec2 vu = normalize(fragCoord, 1.);
++    vec2 offsetFactor = vec2(-.5, 0.5);
++
++    // Normalization for cursor position and size;
++    // cursor xy has the postion in a space of -1 to 1;
++    // zw has the width and height
++    vec4 currentCursor = vec4(normalize(iCurrentCursor.xy, 1.), normalize(iCurrentCursor.zw, 0.));
++    vec4 previousCursor = vec4(normalize(iPreviousCursor.xy, 1.), normalize(iPreviousCursor.zw, 0.));
++
++    vec2 centerCC = getRectangleCenter(currentCursor);
++    vec2 centerCP = getRectangleCenter(previousCursor);
++    // When drawing a parellelogram between cursors for the trail i need to determine where to start at the top-left or top-right vertex of the cursor
++    float vertexFactor = determineStartVertexFactor(currentCursor.xy, previousCursor.xy);
++    float invertedVertexFactor = 1.0 - vertexFactor;
++
++    float xMenorFactor = esAMenorB(previousCursor.x, currentCursor.x);
++    float yMenorFactor = esAMenorB(currentCursor.y, previousCursor.y);
++
++    // Set every vertex of my parellogram
++    vec2 v0 = vec2(currentCursor.x + currentCursor.z * vertexFactor, currentCursor.y - currentCursor.w);
++    vec2 v1 = vec2(currentCursor.x + currentCursor.z * xMenorFactor, currentCursor.y - currentCursor.w * yMenorFactor);
++    vec2 v2 = vec2(currentCursor.x + currentCursor.z * invertedVertexFactor, currentCursor.y);
++    vec2 v3 = centerCP;
++    // vec2 v0 = vec2(currentCursor.x + currentCursor.z * vertexFactor, currentCursor.y - currentCursor.w);
++    // vec2 v1 = vec2(currentCursor.x + currentCursor.z * invertedVertexFactor, currentCursor.y);
++    // vec2 v2 = vec2(previousCursor.x + currentCursor.z * invertedVertexFactor, previousCursor.y);
++    // vec2 v3 = vec2(previousCursor.x + currentCursor.z * vertexFactor, previousCursor.y - previousCursor.w);
++
++    float sdfCurrentCursor = getSdfRectangle(vu, currentCursor.xy - (currentCursor.zw * offsetFactor), currentCursor.zw * 0.5);
++    float sdfTrail = getSdfParallelogram(vu, v0, v1, v2, v3);
++
++    float progress = clamp((iTime - iTimeCursorChange) / DURATION, 0.0, 1.0);
++    float easedProgress = ease(progress);
++    // Distance between cursors determine the total length of the parallelogram;
++    float lineLength = distance(centerCC, centerCP);
++
++    vec4 newColor = vec4(fragColor);
++    // Compute fade factor based on distance along the trail
++    float fadeFactor = 1.0 - smoothstep(lineLength, sdfCurrentCursor, easedProgress * lineLength);
++
++    float mod = .007;
++    //trailblaze
++    vec4 trail = mix(TRAIL_COLOR_ACCENT, fragColor, 1. - smoothstep(0., sdfTrail + mod, 0.007));
++    trail = mix(TRAIL_COLOR, trail, 1. - smoothstep(0., sdfTrail + mod, 0.006));
++    trail = mix(trail, TRAIL_COLOR, step(sdfTrail + mod, 0.));
++    //cursorblaze
++    trail = mix(TRAIL_COLOR_ACCENT, trail, 1. - smoothstep(0., sdfCurrentCursor + .002, 0.004));
++    trail = mix(TRAIL_COLOR, trail, 1. - smoothstep(0., sdfCurrentCursor + .002, 0.004));
++    fragColor = mix(trail, fragColor, 1. - smoothstep(0., sdfCurrentCursor, easedProgress * lineLength));
++}
+diff --git a/.config/ghostty/shaders/cursor_blaze.glsl b/.config/ghostty/shaders/cursor_blaze.glsl
+new file mode 100644
+index 0000000..6da0090
+--- /dev/null
++++ b/.config/ghostty/shaders/cursor_blaze.glsl
+@@ -0,0 +1,116 @@
++float getSdfRectangle(in vec2 p, in vec2 xy, in vec2 b)
++{
++    vec2 d = abs(p - xy) - b;
++    return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
++}
++
++// Based on Inigo Quilez's 2D distance functions article: https://iquilezles.org/articles/distfunctions2d/
++// Potencially optimized by eliminating conditionals and loops to enhance performance and reduce branching
++
++float seg(in vec2 p, in vec2 a, in vec2 b, inout float s, float d) {
++    vec2 e = b - a;
++    vec2 w = p - a;
++    vec2 proj = a + e * clamp(dot(w, e) / dot(e, e), 0.0, 1.0);
++    float segd = dot(p - proj, p - proj);
++    d = min(d, segd);
++
++    float c0 = step(0.0, p.y - a.y);
++    float c1 = 1.0 - step(0.0, p.y - b.y);
++    float c2 = 1.0 - step(0.0, e.x * w.y - e.y * w.x);
++    float allCond = c0 * c1 * c2;
++    float noneCond = (1.0 - c0) * (1.0 - c1) * (1.0 - c2);
++    float flip = mix(1.0, -1.0, step(0.5, allCond + noneCond));
++    s *= flip;
++    return d;
++}
++
++float getSdfParallelogram(in vec2 p, in vec2 v0, in vec2 v1, in vec2 v2, in vec2 v3) {
++    float s = 1.0;
++    float d = dot(p - v0, p - v0);
++
++    d = seg(p, v0, v3, s, d);
++    d = seg(p, v1, v0, s, d);
++    d = seg(p, v2, v1, s, d);
++    d = seg(p, v3, v2, s, d);
++
++    return s * sqrt(d);
++}
++
++vec2 normalize(vec2 value, float isPosition) {
++    return (value * 2.0 - (iResolution.xy * isPosition)) / iResolution.y;
++}
++
++float antialising(float distance) {
++    return 1. - smoothstep(0., normalize(vec2(2., 2.), 0.).x, distance);
++}
++
++float determineStartVertexFactor(vec2 c, vec2 p) {
++    // Conditions using step
++    float condition1 = step(p.x, c.x) * step(c.y, p.y); // c.x < p.x && c.y > p.y
++    float condition2 = step(c.x, p.x) * step(p.y, c.y); // c.x > p.x && c.y < p.y
++
++    // If neither condition is met, return 1 (else case)
++    return 1.0 - max(condition1, condition2);
++}
++
++vec2 getRectangleCenter(vec4 rectangle) {
++    return vec2(rectangle.x + (rectangle.z / 2.), rectangle.y - (rectangle.w / 2.));
++}
++float ease(float x) {
++    return pow(1.0 - x, 3.0);
++}
++
++vec4 saturate(vec4 color, float factor) {
++    float gray = dot(color, vec4(0.299, 0.587, 0.114, 0.)); // luminance
++    return mix(vec4(gray), color, factor);
++}
++const vec4 TRAIL_COLOR = vec4(1.0, 0.725, 0.161, 1.0);
++const vec4 TRAIL_COLOR_ACCENT = vec4(1.0, 0., 0., 1.0);
++const float DURATION = 0.3; //IN SECONDS
++
++void mainImage(out vec4 fragColor, in vec2 fragCoord)
++{
++    #if !defined(WEB)
++    fragColor = texture(iChannel0, fragCoord.xy / iResolution.xy);
++    #endif
++    // Normalization for fragCoord to a space of -1 to 1;
++    vec2 vu = normalize(fragCoord, 1.);
++    vec2 offsetFactor = vec2(-.5, 0.5);
++
++    // Normalization for cursor position and size;
++    // cursor xy has the postion in a space of -1 to 1;
++    // zw has the width and height
++    vec4 currentCursor = vec4(normalize(iCurrentCursor.xy, 1.), normalize(iCurrentCursor.zw, 0.));
++    vec4 previousCursor = vec4(normalize(iPreviousCursor.xy, 1.), normalize(iPreviousCursor.zw, 0.));
++
++    vec2 centerCC = getRectangleCenter(currentCursor);
++    vec2 centerCP = getRectangleCenter(previousCursor);
++    // When drawing a parellelogram between cursors for the trail i need to determine where to start at the top-left or top-right vertex of the cursor
++    float vertexFactor = determineStartVertexFactor(currentCursor.xy, previousCursor.xy);
++    float invertedVertexFactor = 1.0 - vertexFactor;
++
++    // Set every vertex of my parellogram
++    vec2 v0 = vec2(currentCursor.x + currentCursor.z * vertexFactor, currentCursor.y - currentCursor.w);
++    vec2 v1 = vec2(currentCursor.x + currentCursor.z * invertedVertexFactor, currentCursor.y);
++    vec2 v2 = vec2(previousCursor.x + currentCursor.z * invertedVertexFactor, previousCursor.y);
++    vec2 v3 = vec2(previousCursor.x + currentCursor.z * vertexFactor, previousCursor.y - previousCursor.w);
++
++    float sdfCurrentCursor = getSdfRectangle(vu, currentCursor.xy - (currentCursor.zw * offsetFactor), currentCursor.zw * 0.5);
++    float sdfTrail = getSdfParallelogram(vu, v0, v1, v2, v3);
++
++    float progress = clamp((iTime - iTimeCursorChange) / DURATION, 0.0, 1.0);
++    float easedProgress = ease(progress);
++    // Distance between cursors determine the total length of the parallelogram;
++    float lineLength = distance(centerCC, centerCP);
++
++    float mod = .007;
++    //trailblaze
++    // HACK: Using the saturate function because I currently don't know how to blend colors without losing saturation.
++    vec4 trail = mix(saturate(TRAIL_COLOR_ACCENT, 1.5), fragColor, 1. - smoothstep(0., sdfTrail + mod, 0.007));
++    trail = mix(saturate(TRAIL_COLOR, 1.5), trail, 1. - smoothstep(0., sdfTrail + mod, 0.006));
++    trail = mix(trail, saturate(TRAIL_COLOR, 1.5), step(sdfTrail + mod, 0.));
++    //cursorblaze
++    trail = mix(saturate(TRAIL_COLOR_ACCENT, 1.5), trail, 1. - smoothstep(0., sdfCurrentCursor + .002, 0.004));
++    trail = mix(saturate(TRAIL_COLOR, 1.5), trail, 1. - smoothstep(0., sdfCurrentCursor + .002, 0.004));
++    fragColor = mix(trail, fragColor, 1. - smoothstep(0., sdfCurrentCursor, easedProgress * lineLength));
++}
+diff --git a/.config/ghostty/shaders/cursor_blaze_no_trail.glsl b/.config/ghostty/shaders/cursor_blaze_no_trail.glsl
+new file mode 100644
+index 0000000..68b08f5
+--- /dev/null
++++ b/.config/ghostty/shaders/cursor_blaze_no_trail.glsl
+@@ -0,0 +1,56 @@
++float getSdfRectangle(in vec2 p, in vec2 xy, in vec2 b)
++{
++    vec2 d = abs(p - xy) - b;
++    return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
++}
++
++vec2 normalize(vec2 value, float isPosition) {
++    return (value * 2.0 - (iResolution.xy * isPosition)) / iResolution.y;
++}
++
++float antialising(float distance) {
++    return 1. - smoothstep(0., normalize(vec2(2., 2.), 0.).x, distance);
++}
++
++vec2 getRectangleCenter(vec4 rectangle) {
++    return vec2(rectangle.x + (rectangle.z / 2.), rectangle.y - (rectangle.w / 2.));
++}
++float ease(float x) {
++    return pow(1.0 - x, 3.0);
++}
++
++const vec4 TRAIL_COLOR = vec4(1.0, 0.725, 0.161, 1.0);
++const vec4 TRAIL_COLOR_ACCENT = vec4(1.0, 0., 0., 1.0);
++const float DURATION = 0.3; //IN SECONDS
++
++void mainImage(out vec4 fragColor, in vec2 fragCoord)
++{
++    #if !defined(WEB)
++    fragColor = texture(iChannel0, fragCoord.xy / iResolution.xy);
++    #endif
++    // Normalization for fragCoord to a space of -1 to 1;
++    vec2 vu = normalize(fragCoord, 1.);
++    vec2 offsetFactor = vec2(-.5, 0.5);
++
++    // Normalization for cursor position and size;
++    // cursor xy has the postion in a space of -1 to 1;
++    // zw has the width and height
++    vec4 currentCursor = vec4(normalize(iCurrentCursor.xy, 1.), normalize(iCurrentCursor.zw, 0.));
++    vec4 previousCursor = vec4(normalize(iPreviousCursor.xy, 1.), normalize(iPreviousCursor.zw, 0.));
++
++    vec2 centerCC = getRectangleCenter(currentCursor);
++    vec2 centerCP = getRectangleCenter(previousCursor);
++
++    float sdfCurrentCursor = getSdfRectangle(vu, currentCursor.xy - (currentCursor.zw * offsetFactor), currentCursor.zw * 0.5);
++
++    float progress = clamp((iTime - iTimeCursorChange) / DURATION, 0.0, 1.0);
++    float easedProgress = ease(progress);
++    float lineLength = distance(centerCC, centerCP);
++
++    // Compute fade factor based on distance along the trail
++
++    //cursorblaze
++    vec4 trail = mix(TRAIL_COLOR_ACCENT, fragColor, 1. - smoothstep(0., sdfCurrentCursor + .002, 0.004));
++    trail = mix(TRAIL_COLOR, trail, 1. - smoothstep(0., sdfCurrentCursor + .002, 0.004));
++    fragColor = mix(trail, fragColor, 1. - smoothstep(0., sdfCurrentCursor, easedProgress * lineLength));
++}
+diff --git a/.config/ghostty/shaders/cursor_blaze_tapered.glsl b/.config/ghostty/shaders/cursor_blaze_tapered.glsl
+new file mode 100644
+index 0000000..e84760c
+--- /dev/null
++++ b/.config/ghostty/shaders/cursor_blaze_tapered.glsl
+@@ -0,0 +1,119 @@
++float getSdfRectangle(in vec2 p, in vec2 xy, in vec2 b)
++{
++    vec2 d = abs(p - xy) - b;
++    return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
++}
++
++// Based on Inigo Quilez's 2D distance functions article: https://iquilezles.org/articles/distfunctions2d/
++// Potencially optimized by eliminating conditionals and loops to enhance performance and reduce branching
++
++float seg(in vec2 p, in vec2 a, in vec2 b, inout float s, float d) {
++    vec2 e = b - a;
++    vec2 w = p - a;
++    vec2 proj = a + e * clamp(dot(w, e) / dot(e, e), 0.0, 1.0);
++    float segd = dot(p - proj, p - proj);
++    d = min(d, segd);
++
++    float c0 = step(0.0, p.y - a.y);
++    float c1 = 1.0 - step(0.0, p.y - b.y);
++    float c2 = 1.0 - step(0.0, e.x * w.y - e.y * w.x);
++    float allCond = c0 * c1 * c2;
++    float noneCond = (1.0 - c0) * (1.0 - c1) * (1.0 - c2);
++    float flip = mix(1.0, -1.0, step(0.5, allCond + noneCond));
++    s *= flip;
++    return d;
++}
++
++float getSdfParallelogram(in vec2 p, in vec2 v0, in vec2 v1, in vec2 v2, in vec2 v3) {
++    float s = 1.0;
++    float d = dot(p - v0, p - v0);
++
++    d = seg(p, v0, v3, s, d);
++    d = seg(p, v1, v0, s, d);
++    d = seg(p, v2, v1, s, d);
++    d = seg(p, v3, v2, s, d);
++
++    return s * sqrt(d);
++}
++
++vec2 normalize(vec2 value, float isPosition) {
++    return (value * 2.0 - (iResolution.xy * isPosition)) / iResolution.y;
++}
++
++float antialising(float distance) {
++    return 1. - smoothstep(0., normalize(vec2(2., 2.), 0.).x, distance);
++}
++
++float determineStartVertexFactor(vec2 c, vec2 p) {
++    // Conditions using step
++    float condition1 = step(p.x, c.x) * step(c.y, p.y); // c.x < p.x && c.y > p.y
++    float condition2 = step(c.x, p.x) * step(p.y, c.y); // c.x > p.x && c.y < p.y
++
++    // If neither condition is met, return 1 (else case)
++    return 1.0 - max(condition1, condition2);
++}
++
++float isLess(float c, float p) {
++    // Conditions using step
++    return 1.0 - step(p, c); // c < p
++}
++
++vec2 getRectangleCenter(vec4 rectangle) {
++    return vec2(rectangle.x + (rectangle.z / 2.), rectangle.y - (rectangle.w / 2.));
++}
++float ease(float x) {
++    return pow(1.0 - x, 3.0);
++}
++
++const vec4 TRAIL_COLOR = vec4(1.0, 0.725, 0.161, 1.0);
++const vec4 TRAIL_COLOR_ACCENT = vec4(1.0, 0., 0., 1.0);
++const float DURATION = 0.3; //IN SECONDS
++
++void mainImage(out vec4 fragColor, in vec2 fragCoord)
++{
++    #if !defined(WEB)
++    fragColor = texture(iChannel0, fragCoord.xy / iResolution.xy);
++    #endif
++    // Normalization for fragCoord to a space of -1 to 1;
++    vec2 vu = normalize(fragCoord, 1.);
++    vec2 offsetFactor = vec2(-.5, 0.5);
++
++    // Normalization for cursor position and size;
++    // cursor xy has the postion in a space of -1 to 1;
++    // zw has the width and height
++    vec4 currentCursor = vec4(normalize(iCurrentCursor.xy, 1.), normalize(iCurrentCursor.zw, 0.));
++    vec4 previousCursor = vec4(normalize(iPreviousCursor.xy, 1.), normalize(iPreviousCursor.zw, 0.));
++
++    vec2 centerCC = getRectangleCenter(currentCursor);
++    vec2 centerCP = getRectangleCenter(previousCursor);
++    // When drawing a parellelogram between cursors for the trail i need to determine where to start at the top-left or top-right vertex of the cursor
++    float vertexFactor = determineStartVertexFactor(currentCursor.xy, previousCursor.xy);
++    float invertedVertexFactor = 1.0 - vertexFactor;
++
++    float xFactor = isLess(previousCursor.x, currentCursor.x);
++    float yFactor = isLess(currentCursor.y, previousCursor.y);
++
++    // Set every vertex of my parellogram
++    vec2 v0 = vec2(currentCursor.x + currentCursor.z * vertexFactor, currentCursor.y - currentCursor.w);
++    vec2 v1 = vec2(currentCursor.x + currentCursor.z * xFactor, currentCursor.y - currentCursor.w * yFactor);
++    vec2 v2 = vec2(currentCursor.x + currentCursor.z * invertedVertexFactor, currentCursor.y);
++    vec2 v3 = centerCP;
++
++    float sdfCurrentCursor = getSdfRectangle(vu, currentCursor.xy - (currentCursor.zw * offsetFactor), currentCursor.zw * 0.5);
++    float sdfTrail = getSdfParallelogram(vu, v0, v1, v2, v3);
++
++    float progress = clamp((iTime - iTimeCursorChange) / DURATION, 0.0, 1.0);
++    float easedProgress = ease(progress);
++    // Distance between cursors determine the total length of the parallelogram;
++    float lineLength = distance(centerCC, centerCP);
++
++    float mod = .007;
++    //trailblaze
++    vec4 trail = mix(TRAIL_COLOR_ACCENT, fragColor, 1. - smoothstep(0., sdfTrail + mod, 0.007));
++    trail = mix(TRAIL_COLOR, trail, 1. - smoothstep(0., sdfTrail + mod, 0.006));
++    trail = mix(trail, TRAIL_COLOR, step(sdfTrail + mod, 0.));
++    //cursorblaze
++    trail = mix(TRAIL_COLOR_ACCENT, trail, 1. - smoothstep(0., sdfCurrentCursor + .002, 0.004));
++    trail = mix(TRAIL_COLOR, trail, 1. - smoothstep(0., sdfCurrentCursor + .002, 0.004));
++    fragColor = mix(trail, fragColor, 1. - smoothstep(0., sdfCurrentCursor, easedProgress * lineLength));
++}
+diff --git a/.config/ghostty/shaders/cursor_frozen.glsl b/.config/ghostty/shaders/cursor_frozen.glsl
+new file mode 100644
+index 0000000..48b0efa
+--- /dev/null
++++ b/.config/ghostty/shaders/cursor_frozen.glsl
+@@ -0,0 +1,124 @@
++float getSdfRectangle(in vec2 p, in vec2 xy, in vec2 b)
++{
++    vec2 d = abs(p - xy) - b;
++    return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
++}
++
++// Based on Inigo Quilez's 2D distance functions article: https://iquilezles.org/articles/distfunctions2d/
++// Potencially optimized by eliminating conditionals and loops to enhance performance and reduce branching
++
++float seg(in vec2 p, in vec2 a, in vec2 b, inout float s, float d) {
++    vec2 e = b - a;
++    vec2 w = p - a;
++    vec2 proj = a + e * clamp(dot(w, e) / dot(e, e), 0.0, 1.0);
++    float segd = dot(p - proj, p - proj);
++    d = min(d, segd);
++
++    float c0 = step(0.0, p.y - a.y);
++    float c1 = 1.0 - step(0.0, p.y - b.y);
++    float c2 = 1.0 - step(0.0, e.x * w.y - e.y * w.x);
++    float allCond = c0 * c1 * c2;
++    float noneCond = (1.0 - c0) * (1.0 - c1) * (1.0 - c2);
++    float flip = mix(1.0, -1.0, step(0.5, allCond + noneCond));
++    s *= flip;
++    return d;
++}
++
++float getSdfParallelogram(in vec2 p, in vec2 v0, in vec2 v1, in vec2 v2, in vec2 v3) {
++    float s = 1.0;
++    float d = dot(p - v0, p - v0);
++
++    d = seg(p, v0, v3, s, d);
++    d = seg(p, v1, v0, s, d);
++    d = seg(p, v2, v1, s, d);
++    d = seg(p, v3, v2, s, d);
++
++    return s * sqrt(d);
++}
++
++vec2 normalize(vec2 value, float isPosition) {
++    return (value * 2.0 - (iResolution.xy * isPosition)) / iResolution.y;
++}
++
++float antialising(float distance) {
++    return 1. - smoothstep(0., normalize(vec2(2., 2.), 0.).x, distance);
++}
++
++float determineStartVertexFactor(vec2 c, vec2 p) {
++    // Conditions using step
++    float condition1 = step(p.x, c.x) * step(c.y, p.y); // c.x < p.x && c.y > p.y
++    float condition2 = step(c.x, p.x) * step(p.y, c.y); // c.x > p.x && c.y < p.y
++
++    // If neither condition is met, return 1 (else case)
++    return 1.0 - max(condition1, condition2);
++}
++
++float determineStartVertexFactor2(vec2 c, vec2 p) {
++    // Conditions using step
++    float condition1 = step(p.x, c.x) * step(c.y, p.y); // c.x < p.x && c.y > p.y
++    float condition2 = step(c.x, p.x) * step(p.y, c.y); // c.x > p.x && c.y < p.y
++
++    // If neither condition is met, return 1 (else case)
++    return 1.0 - max(condition1, condition2);
++}
++
++vec2 getRectangleCenter(vec4 rectangle) {
++    return vec2(rectangle.x + (rectangle.z / 2.), rectangle.y - (rectangle.w / 2.));
++}
++float ease(float x) {
++    return pow(1.0 - x, 3.0);
++}
++
++const vec4 TRAIL_COLOR = vec4(.502, 0.98, 1., 1.0);
++const vec4 TRAIL_COLOR_ACCENT = vec4(.0, 0., 1., 1.0);
++const float DURATION = 0.3; //IN SECONDS
++
++void mainImage(out vec4 fragColor, in vec2 fragCoord)
++{
++    #if !defined(WEB)
++    fragColor = texture(iChannel0, fragCoord.xy / iResolution.xy);
++    #endif
++    // Normalization for fragCoord to a space of -1 to 1;
++    vec2 vu = normalize(fragCoord, 1.);
++    vec2 offsetFactor = vec2(-.5, 0.5);
++
++    // Normalization for cursor position and size;
++    // cursor xy has the postion in a space of -1 to 1;
++    // zw has the width and height
++    vec4 currentCursor = vec4(normalize(iCurrentCursor.xy, 1.), normalize(iCurrentCursor.zw, 0.));
++    vec4 previousCursor = vec4(normalize(iPreviousCursor.xy, 1.), normalize(iPreviousCursor.zw, 0.));
++
++    vec2 centerCC = getRectangleCenter(currentCursor);
++    vec2 centerCP = getRectangleCenter(previousCursor);
++    // When drawing a parellelogram between cursors for the trail i need to determine where to start at the top-left or top-right vertex of the cursor
++    float vertexFactor = determineStartVertexFactor(currentCursor.xy, previousCursor.xy);
++    float invertedVertexFactor = 1.0 - vertexFactor;
++
++    // Set every vertex of my parellogram
++    vec2 v0 = vec2(currentCursor.x + currentCursor.z * vertexFactor, currentCursor.y - currentCursor.w);
++    vec2 v1 = vec2(currentCursor.x + currentCursor.z * invertedVertexFactor, currentCursor.y);
++    vec2 v2 = vec2(previousCursor.x + currentCursor.z * invertedVertexFactor, previousCursor.y);
++    vec2 v3 = vec2(previousCursor.x + currentCursor.z * vertexFactor, previousCursor.y - previousCursor.w);
++
++    float sdfCurrentCursor = getSdfRectangle(vu, currentCursor.xy - (currentCursor.zw * offsetFactor), currentCursor.zw * 0.5);
++    float sdfTrail = getSdfParallelogram(vu, v0, v1, v2, v3);
++
++    float progress = clamp((iTime - iTimeCursorChange) / DURATION, 0.0, 1.0);
++    float easedProgress = ease(progress);
++    // Distance between cursors determine the total length of the parallelogram;
++    float lineLength = distance(centerCC, centerCP);
++
++    vec4 newColor = vec4(fragColor);
++    // Compute fade factor based on distance along the trail
++    float fadeFactor = 1.0 - smoothstep(lineLength, sdfCurrentCursor, easedProgress * lineLength);
++
++    float mod = .007;
++    //trailblaze
++    vec4 trail = mix(TRAIL_COLOR_ACCENT, fragColor, 1. - smoothstep(0., sdfTrail + mod, 0.007));
++    trail = mix(TRAIL_COLOR, trail, 1. - smoothstep(0., sdfTrail + mod, 0.006));
++    trail = mix(trail, TRAIL_COLOR, step(sdfTrail + mod, 0.));
++    //cursorblaze
++    trail = mix(TRAIL_COLOR_ACCENT, trail, 1. - smoothstep(0., sdfCurrentCursor + .002, 0.004));
++    trail = mix(TRAIL_COLOR, trail, 1. - smoothstep(0., sdfCurrentCursor + .002, 0.004));
++    fragColor = mix(trail, fragColor, 1. - smoothstep(0., sdfCurrentCursor, easedProgress * lineLength));
++}
+diff --git a/.config/ghostty/shaders/cursor_smear.glsl b/.config/ghostty/shaders/cursor_smear.glsl
+new file mode 100644
+index 0000000..9d26018
+--- /dev/null
++++ b/.config/ghostty/shaders/cursor_smear.glsl
+@@ -0,0 +1,118 @@
++float getSdfRectangle(in vec2 p, in vec2 xy, in vec2 b)
++{
++    vec2 d = abs(p - xy) - b;
++    return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
++}
++
++// Based on Inigo Quilez's 2D distance functions article: https://iquilezles.org/articles/distfunctions2d/
++// Potencially optimized by eliminating conditionals and loops to enhance performance and reduce branching
++
++float seg(in vec2 p, in vec2 a, in vec2 b, inout float s, float d) {
++    vec2 e = b - a;
++    vec2 w = p - a;
++    vec2 proj = a + e * clamp(dot(w, e) / dot(e, e), 0.0, 1.0);
++    float segd = dot(p - proj, p - proj);
++    d = min(d, segd);
++
++    float c0 = step(0.0, p.y - a.y);
++    float c1 = 1.0 - step(0.0, p.y - b.y);
++    float c2 = 1.0 - step(0.0, e.x * w.y - e.y * w.x);
++    float allCond = c0 * c1 * c2;
++    float noneCond = (1.0 - c0) * (1.0 - c1) * (1.0 - c2);
++    float flip = mix(1.0, -1.0, step(0.5, allCond + noneCond));
++    s *= flip;
++    return d;
++}
++
++float getSdfParallelogram(in vec2 p, in vec2 v0, in vec2 v1, in vec2 v2, in vec2 v3) {
++    float s = 1.0;
++    float d = dot(p - v0, p - v0);
++
++    d = seg(p, v0, v3, s, d);
++    d = seg(p, v1, v0, s, d);
++    d = seg(p, v2, v1, s, d);
++    d = seg(p, v3, v2, s, d);
++
++    return s * sqrt(d);
++}
++
++vec2 normalize(vec2 value, float isPosition) {
++    return (value * 2.0 - (iResolution.xy * isPosition)) / iResolution.y;
++}
++
++float antialising(float distance) {
++    return 1. - smoothstep(0., normalize(vec2(2., 2.), 0.).x, distance);
++}
++
++float determineStartVertexFactor(vec2 a, vec2 b) {
++    // Conditions using step
++    float condition1 = step(b.x, a.x) * step(a.y, b.y); // a.x < b.x && a.y > b.y
++    float condition2 = step(a.x, b.x) * step(b.y, a.y); // a.x > b.x && a.y < b.y
++
++    // If neither condition is met, return 1 (else case)
++    return 1.0 - max(condition1, condition2);
++}
++
++vec2 getRectangleCenter(vec4 rectangle) {
++    return vec2(rectangle.x + (rectangle.z / 2.), rectangle.y - (rectangle.w / 2.));
++}
++float ease(float x) {
++    return pow(1.0 - x, 3.0);
++}
++vec4 saturate(vec4 color, float factor) {
++    float gray = dot(color, vec4(0.299, 0.587, 0.114, 0.)); // luminance
++    return mix(vec4(gray), color, factor);
++}
++
++vec4 TRAIL_COLOR = iCurrentCursorColor;
++const float OPACITY = 0.6;
++const float DURATION = 0.3; //IN SECONDS
++
++void mainImage(out vec4 fragColor, in vec2 fragCoord)
++{
++
++    #if !defined(WEB)
++    fragColor = texture(iChannel0, fragCoord.xy / iResolution.xy);
++    #endif
++    // Normalization for fragCoord to a space of -1 to 1;
++    vec2 vu = normalize(fragCoord, 1.);
++    vec2 offsetFactor = vec2(-.5, 0.5);
++
++    // Normalization for cursor position and size;
++    // cursor xy has the postion in a space of -1 to 1;
++    // zw has the width and height
++    vec4 currentCursor = vec4(normalize(iCurrentCursor.xy, 1.), normalize(iCurrentCursor.zw, 0.));
++    vec4 previousCursor = vec4(normalize(iPreviousCursor.xy, 1.), normalize(iPreviousCursor.zw, 0.));
++
++    // When drawing a parellelogram between cursors for the trail i need to determine where to start at the top-left or top-right vertex of the cursor
++    float vertexFactor = determineStartVertexFactor(currentCursor.xy, previousCursor.xy);
++    float invertedVertexFactor = 1.0 - vertexFactor;
++
++    // Set every vertex of my parellogram
++    vec2 v0 = vec2(currentCursor.x + currentCursor.z * vertexFactor, currentCursor.y - currentCursor.w);
++    vec2 v1 = vec2(currentCursor.x + currentCursor.z * invertedVertexFactor, currentCursor.y);
++    vec2 v2 = vec2(previousCursor.x + currentCursor.z * invertedVertexFactor, previousCursor.y);
++    vec2 v3 = vec2(previousCursor.x + currentCursor.z * vertexFactor, previousCursor.y - previousCursor.w);
++
++    float sdfCurrentCursor = getSdfRectangle(vu, currentCursor.xy - (currentCursor.zw * offsetFactor), currentCursor.zw * 0.5);
++    float sdfTrail = getSdfParallelogram(vu, v0, v1, v2, v3);
++
++    float progress = clamp((iTime - iTimeCursorChange) / DURATION, 0.0, 1.0);
++    float easedProgress = ease(progress);
++    // Distance between cursors determine the total length of the parallelogram;
++    vec2 centerCC = getRectangleCenter(currentCursor);
++    vec2 centerCP = getRectangleCenter(previousCursor);
++    float lineLength = distance(centerCC, centerCP);
++
++    vec4 newColor = vec4(fragColor);
++
++    vec4 trail = TRAIL_COLOR;
++    trail = saturate(trail, 2.5);
++    // Draw trail
++    newColor = mix(newColor, trail, antialising(sdfTrail));
++    // Draw current cursor
++    newColor = mix(newColor, trail, antialising(sdfCurrentCursor));
++    newColor = mix(newColor, fragColor, step(sdfCurrentCursor, 0.));
++    // newColor = mix(fragColor, newColor, OPACITY);
++    fragColor = mix(fragColor, newColor, step(sdfCurrentCursor, easedProgress * lineLength));
++}
+diff --git a/.config/ghostty/shaders/cursor_smear_fade.glsl b/.config/ghostty/shaders/cursor_smear_fade.glsl
+new file mode 100644
+index 0000000..fa8be9d
+--- /dev/null
++++ b/.config/ghostty/shaders/cursor_smear_fade.glsl
+@@ -0,0 +1,114 @@
++float getSdfRectangle(in vec2 p, in vec2 xy, in vec2 b)
++{
++    vec2 d = abs(p - xy) - b;
++    return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
++}
++
++// Based on Inigo Quilez's 2D distance functions article: https://iquilezles.org/articles/distfunctions2d/
++// Potencially optimized by eliminating conditionals and loops to enhance performance and reduce branching
++
++float seg(in vec2 p, in vec2 a, in vec2 b, inout float s, float d) {
++    vec2 e = b - a;
++    vec2 w = p - a;
++    vec2 proj = a + e * clamp(dot(w, e) / dot(e, e), 0.0, 1.0);
++    float segd = dot(p - proj, p - proj);
++    d = min(d, segd);
++
++    float c0 = step(0.0, p.y - a.y);
++    float c1 = 1.0 - step(0.0, p.y - b.y);
++    float c2 = 1.0 - step(0.0, e.x * w.y - e.y * w.x);
++    float allCond = c0 * c1 * c2;
++    float noneCond = (1.0 - c0) * (1.0 - c1) * (1.0 - c2);
++    float flip = mix(1.0, -1.0, step(0.5, allCond + noneCond));
++    s *= flip;
++    return d;
++}
++
++float getSdfParallelogram(in vec2 p, in vec2 v0, in vec2 v1, in vec2 v2, in vec2 v3) {
++    float s = 1.0;
++    float d = dot(p - v0, p - v0);
++
++    d = seg(p, v0, v3, s, d);
++    d = seg(p, v1, v0, s, d);
++    d = seg(p, v2, v1, s, d);
++    d = seg(p, v3, v2, s, d);
++
++    return s * sqrt(d);
++}
++
++vec2 normalize(vec2 value, float isPosition) {
++    return (value * 2.0 - (iResolution.xy * isPosition)) / iResolution.y;
++}
++
++float antialising(float distance) {
++    return 1. - smoothstep(0., normalize(vec2(2., 2.), 0.).x, distance);
++}
++
++float determineStartVertexFactor(vec2 a, vec2 b) {
++    // Conditions using step
++    float condition1 = step(b.x, a.x) * step(a.y, b.y); // a.x < b.x && a.y > b.y
++    float condition2 = step(a.x, b.x) * step(b.y, a.y); // a.x > b.x && a.y < b.y
++
++    // If neither condition is met, return 1 (else case)
++    return 1.0 - max(condition1, condition2);
++}
++
++vec2 getRectangleCenter(vec4 rectangle) {
++    return vec2(rectangle.x + (rectangle.z / 2.), rectangle.y - (rectangle.w / 2.));
++}
++float ease(float x) {
++    return pow(1.0 - x, 3.0);
++}
++
++const vec4 TRAIL_COLOR = vec4(1., 1., 0., 1.0);
++const float DURATION = 0.5; //IN SECONDS
++
++void mainImage(out vec4 fragColor, in vec2 fragCoord)
++{
++    #if !defined(WEB)
++    fragColor = texture(iChannel0, fragCoord.xy / iResolution.xy);
++    #endif
++    // Normalization for fragCoord to a space of -1 to 1;
++    vec2 vu = normalize(fragCoord, 1.);
++    vec2 offsetFactor = vec2(-.5, 0.5);
++
++    // Normalization for cursor position and size;
++    // cursor xy has the postion in a space of -1 to 1;
++    // zw has the width and height
++    vec4 currentCursor = vec4(normalize(iCurrentCursor.xy, 1.), normalize(iCurrentCursor.zw, 0.));
++    vec4 previousCursor = vec4(normalize(iPreviousCursor.xy, 1.), normalize(iPreviousCursor.zw, 0.));
++
++    // When drawing a parellelogram between cursors for the trail i need to determine where to start at the top-left or top-right vertex of the cursor
++    float vertexFactor = determineStartVertexFactor(currentCursor.xy, previousCursor.xy);
++    float invertedVertexFactor = 1.0 - vertexFactor;
++
++    // Set every vertex of my parellogram
++    vec2 v0 = vec2(currentCursor.x + currentCursor.z * vertexFactor, currentCursor.y - currentCursor.w);
++    vec2 v1 = vec2(currentCursor.x + currentCursor.z * invertedVertexFactor, currentCursor.y);
++    vec2 v2 = vec2(previousCursor.x + currentCursor.z * invertedVertexFactor, previousCursor.y);
++    vec2 v3 = vec2(previousCursor.x + currentCursor.z * vertexFactor, previousCursor.y - previousCursor.w);
++
++    float sdfCurrentCursor = getSdfRectangle(vu, currentCursor.xy - (currentCursor.zw * offsetFactor), currentCursor.zw * 0.5);
++    float sdfTrail = getSdfParallelogram(vu, v0, v1, v2, v3);
++
++    float progress = clamp((iTime - iTimeCursorChange) / DURATION, 0.0, 1.0);
++    float easedProgress = ease(progress);
++    // Distance between cursors determine the total length of the parallelogram;
++    vec2 centerCC = getRectangleCenter(currentCursor);
++    vec2 centerCP = getRectangleCenter(previousCursor);
++    float lineLength = distance(centerCC, centerCP);
++
++    vec4 newColor = vec4(fragColor);
++    // Compute fade factor based on distance along the trail
++    float fadeFactor = 1.0 - smoothstep(lineLength, sdfCurrentCursor, easedProgress * lineLength);
++
++    // Apply fading effect to trail color
++    vec4 fadedTrailColor = TRAIL_COLOR * fadeFactor;
++
++    // Blend trail with fade effect
++    newColor = mix(newColor, fadedTrailColor, antialising(sdfTrail));
++    // Draw current cursor
++    newColor = mix(newColor, TRAIL_COLOR, antialising(sdfCurrentCursor));
++    newColor = mix(newColor, fragColor, step(sdfCurrentCursor, 0.));
++    fragColor = mix(fragColor, newColor, step(sdfCurrentCursor, easedProgress * lineLength));
++}
+diff --git a/.config/ghostty/shaders/debug_cursor_animated.glsl b/.config/ghostty/shaders/debug_cursor_animated.glsl
+new file mode 100644
+index 0000000..51714bc
+--- /dev/null
++++ b/.config/ghostty/shaders/debug_cursor_animated.glsl
+@@ -0,0 +1,110 @@
++float getSdfRectangle(in vec2 p, in vec2 xy, in vec2 b)
++{
++    vec2 d = abs(p - xy) - b;
++    return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
++}
++
++// Based on Inigo Quilez's 2D distance functions article: https://iquilezles.org/articles/distfunctions2d/
++// Potencially optimized by eliminating conditionals and loops to enhance performance and reduce branching
++
++float seg(in vec2 p, in vec2 a, in vec2 b, inout float s, float d) {
++    vec2 e = b - a;
++    vec2 w = p - a;
++    vec2 proj = a + e * clamp(dot(w, e) / dot(e, e), 0.0, 1.0);
++    float segd = dot(p - proj, p - proj);
++    d = min(d, segd);
++
++    float c0 = step(0.0, p.y - a.y);
++    float c1 = 1.0 - step(0.0, p.y - b.y);
++    float c2 = 1.0 - step(0.0, e.x * w.y - e.y * w.x);
++    float allCond = c0 * c1 * c2;
++    float noneCond = (1.0 - c0) * (1.0 - c1) * (1.0 - c2);
++    float flip = mix(1.0, -1.0, step(0.5, allCond + noneCond));
++    s *= flip;
++    return d;
++}
++
++float getSdfParallelogram(in vec2 p, in vec2 v0, in vec2 v1, in vec2 v2, in vec2 v3) {
++    float s = 1.0;
++    float d = dot(p - v0, p - v0);
++
++    d = seg(p, v0, v3, s, d);
++    d = seg(p, v1, v0, s, d);
++    d = seg(p, v2, v1, s, d);
++    d = seg(p, v3, v2, s, d);
++
++    return s * sqrt(d);
++}
++
++vec2 normalize(vec2 value, float isPosition) {
++    return (value * 2.0 - (iResolution.xy * isPosition)) / iResolution.y;
++}
++
++float determineStartVertexFactor(vec2 a, vec2 b) {
++    // Conditions using step
++    float condition1 = step(b.x, a.x) * step(a.y, b.y); // a.x < b.x && a.y > b.y
++    float condition2 = step(a.x, b.x) * step(b.y, a.y); // a.x > b.x && a.y < b.y
++
++    // If neither condition is met, return 1 (else case)
++    return 1.0 - max(condition1, condition2);
++}
++
++vec2 getRectangleCenter(vec4 rectangle) {
++    return vec2(rectangle.x + (rectangle.z / 2.), rectangle.y - (rectangle.w / 2.));
++}
++float ease(float x) {
++    return pow(1.0 - x, 3.0);
++}
++
++const vec4 CURRENT_COLOR = vec4(0., 1., 1., 1.0);
++const vec4 PREVIOUS_COLOR = vec4(1., 0., 1., 1.0);
++const vec4 TRAIL_COLOR = vec4(1., 1., 0., 1.0);
++const float OPACITY = 0.6;
++const float DURATION = 0.2; //IN SECONDS
++
++void mainImage(out vec4 fragColor, in vec2 fragCoord)
++{
++    #if !defined(WEB)
++    fragColor = texture(iChannel0, fragCoord.xy / iResolution.xy);
++    #endif
++    // Normalization for fragCoord to a space of -1 to 1;
++    vec2 vu = normalize(fragCoord, 1.);
++    vec2 offsetFactor = vec2(-.5, 0.5);
++
++    // Normalization for cursor position and size;
++    // cursor xy has the postion in a space of -1 to 1;
++    // zw has the width and height
++    vec4 currentCursor = vec4(normalize(iCurrentCursor.xy, 1.), normalize(iCurrentCursor.zw, 0.));
++    vec4 previousCursor = vec4(normalize(iPreviousCursor.xy, 1.), normalize(iPreviousCursor.zw, 0.));
++
++    // When drawing a parellelogram between cursors for the trail i need to determine where to start at the top-left or top-right vertex of the cursor
++    float vertexFactor = determineStartVertexFactor(currentCursor.xy, previousCursor.xy);
++    float invertedVertexFactor = 1.0 - vertexFactor;
++
++    // Set every vertex of my parellogram
++    vec2 v0 = vec2(currentCursor.x + currentCursor.z * vertexFactor, currentCursor.y - currentCursor.w);
++    vec2 v1 = vec2(currentCursor.x + currentCursor.z * invertedVertexFactor, currentCursor.y);
++    vec2 v2 = vec2(previousCursor.x + currentCursor.z * invertedVertexFactor, previousCursor.y);
++    vec2 v3 = vec2(previousCursor.x + currentCursor.z * vertexFactor, previousCursor.y - previousCursor.w);
++
++    float sdfPreviousCursor = getSdfRectangle(vu, previousCursor.xy - (previousCursor.zw * offsetFactor), previousCursor.zw * 0.5);
++    float sdfCurrentCursor = getSdfRectangle(vu, currentCursor.xy - (currentCursor.zw * offsetFactor), currentCursor.zw * 0.5);
++    float sdfTrail = getSdfParallelogram(vu, v0, v1, v2, v3);
++
++    float progress = clamp((iTime - iTimeCursorChange) / DURATION, 0.0, 1.0);
++    float easedProgress = ease(progress);
++    // Distance between cursors determine the total length of the parallelogram;
++    vec2 centerCC = getRectangleCenter(currentCursor);
++    vec2 centerCP = getRectangleCenter(previousCursor);
++    float lineLength = distance(centerCC, centerCP);
++
++    vec4 newColor = vec4(fragColor);
++    // Draw trail
++    newColor = mix(newColor, TRAIL_COLOR, step(sdfTrail, 0.));
++    // Draw previous cursor
++    newColor = mix(newColor, PREVIOUS_COLOR, step(sdfPreviousCursor, 0.));
++    // Draw current cursor
++    newColor = mix(newColor, CURRENT_COLOR, step(sdfCurrentCursor, 0.));
++    // newColor = mix(fragColor, newColor, OPACITY);
++    fragColor = mix(fragColor, newColor, step(sdfCurrentCursor, easedProgress * lineLength));
++}
+diff --git a/.config/ghostty/shaders/debug_cursor_static.glsl b/.config/ghostty/shaders/debug_cursor_static.glsl
+new file mode 100644
+index 0000000..bd11585
+--- /dev/null
++++ b/.config/ghostty/shaders/debug_cursor_static.glsl
+@@ -0,0 +1,94 @@
++float getSdfRectangle(in vec2 p, in vec2 xy, in vec2 b)
++{
++    vec2 d = abs(p - xy) - b;
++    return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
++}
++
++// Based on Inigo Quilez's 2D distance functions article: https://iquilezles.org/articles/distfunctions2d/
++// Potencially optimized by eliminating conditionals and loops to enhance performance and reduce branching
++
++float seg(in vec2 p, in vec2 a, in vec2 b, inout float s, float d) {
++    vec2 e = b - a;
++    vec2 w = p - a;
++    vec2 proj = a + e * clamp(dot(w, e) / dot(e, e), 0.0, 1.0);
++    float segd = dot(p - proj, p - proj);
++    d = min(d, segd);
++
++    float c0 = step(0.0, p.y - a.y);
++    float c1 = 1.0 - step(0.0, p.y - b.y);
++    float c2 = 1.0 - step(0.0, e.x * w.y - e.y * w.x);
++    float allCond = c0 * c1 * c2;
++    float noneCond = (1.0 - c0) * (1.0 - c1) * (1.0 - c2);
++    float flip = mix(1.0, -1.0, step(0.5, allCond + noneCond));
++    s *= flip;
++    return d;
++}
++
++float getSdfParallelogram(in vec2 p, in vec2 v0, in vec2 v1, in vec2 v2, in vec2 v3) {
++    float s = 1.0;
++    float d = dot(p - v0, p - v0);
++
++    d = seg(p, v0, v3, s, d);
++    d = seg(p, v1, v0, s, d);
++    d = seg(p, v2, v1, s, d);
++    d = seg(p, v3, v2, s, d);
++
++    return s * sqrt(d);
++}
++
++vec2 normalize(vec2 value, float isPosition) {
++    return (value * 2.0 - (iResolution.xy * isPosition)) / iResolution.y;
++}
++
++float determineStartVertexFactor(vec2 a, vec2 b) {
++    // Conditions using step
++    float condition1 = step(b.x, a.x) * step(a.y, b.y); // a.x < b.x && a.y > b.y
++    float condition2 = step(a.x, b.x) * step(b.y, a.y); // a.x > b.x && a.y < b.y
++
++    // If neither condition is met, return 1 (else case)
++    return 1.0 - max(condition1, condition2);
++}
++
++const vec4 CURRENT_COLOR = vec4(0., 1., 1., 1.0);
++const vec4 PREVIOUS_COLOR = vec4(1., 0., 1., 1.0);
++const vec4 TRAIL_COLOR = vec4(1., 1., 0., 1.0);
++const float OPACITY = 0.6;
++
++void mainImage(out vec4 fragColor, in vec2 fragCoord)
++{
++    #if !defined(WEB)
++    fragColor = texture(iChannel0, fragCoord.xy / iResolution.xy);
++    #endif
++    //Normalization for fragCoord to a space of -1 to 1;
++    vec2 vu = normalize(fragCoord, 1.);
++    vec2 offsetFactor = vec2(-.5, 0.5);
++
++    //Normalization for cursor position and size;
++    //cursor xy has the postion in a space of -1 to 1;
++    //zw has the width and height
++    vec4 currentCursor = vec4(normalize(iCurrentCursor.xy, 1.), normalize(iCurrentCursor.zw, 0.));
++    vec4 previousCursor = vec4(normalize(iPreviousCursor.xy, 1.), normalize(iPreviousCursor.zw, 0.));
++
++    //When drawing a parellelogram between cursors for the trail i need to determine where to start at the top-left or top-right vertex of the cursor
++    float vertexFactor = determineStartVertexFactor(currentCursor.xy, previousCursor.xy);
++    float invertedVertexFactor = 1.0 - vertexFactor;
++
++    //Set every vertex of my parellogram
++    vec2 v0 = vec2(currentCursor.x + currentCursor.z * vertexFactor, currentCursor.y - currentCursor.w);
++    vec2 v1 = vec2(currentCursor.x + currentCursor.z * invertedVertexFactor, currentCursor.y);
++    vec2 v2 = vec2(previousCursor.x + currentCursor.z * invertedVertexFactor, previousCursor.y);
++    vec2 v3 = vec2(previousCursor.x + currentCursor.z * vertexFactor, previousCursor.y - previousCursor.w);
++
++    float sdfPreviousCursor = getSdfRectangle(vu, previousCursor.xy - (previousCursor.zw * offsetFactor), previousCursor.zw * 0.5);
++    float sdfCurrentCursor = getSdfRectangle(vu, currentCursor.xy - (currentCursor.zw * offsetFactor), currentCursor.zw * 0.5);
++    float sdfTrail = getSdfParallelogram(vu, v0, v1, v2, v3);
++
++    vec4 newColor = vec4(fragColor);
++    // Draw trail
++    newColor = mix(newColor, TRAIL_COLOR, step(sdfTrail, 0.));
++    // Draw previous cursor
++    newColor = mix(newColor, PREVIOUS_COLOR, step(sdfPreviousCursor, 0.));
++    // Draw current cursor
++    newColor = mix(newColor, CURRENT_COLOR, step(sdfCurrentCursor, 0.));
++    fragColor = mix(fragColor, newColor, OPACITY);
++}
+diff --git a/.config/ghostty/shaders/manga_slash.glsl b/.config/ghostty/shaders/manga_slash.glsl
+new file mode 100644
+index 0000000..5f7963f
+--- /dev/null
++++ b/.config/ghostty/shaders/manga_slash.glsl
+@@ -0,0 +1,147 @@
++// By Komsit37 (https://github.com/komsit37)
++
++float getSdfRectangle(in vec2 p, in vec2 xy, in vec2 b)
++{
++    vec2 d = abs(p - xy) - b;
++    return length(max(d, 0.0)) + min(max(d.x, d.y), 0.0);
++}
++
++vec2 normalize(vec2 value, float isPosition) {
++    return (value * 2.0 - (iResolution.xy * isPosition)) / iResolution.y;
++}
++
++float antialising(float distance) {
++    return 1. - smoothstep(0., normalize(vec2(2., 2.), 0.).x, distance);
++}
++
++vec2 getRectangleCenter(vec4 rectangle) {
++    return vec2(rectangle.x + (rectangle.z / 2.), rectangle.y - (rectangle.w / 2.));
++}
++
++float ease(float x) {
++    return 1.0 - pow(1.0 - x, 3.0); // Smooth cubic ease-out
++}
++
++// Smooth noise function for fluid motion
++float hash(vec2 p) {
++    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
++}
++
++float noise(vec2 p) {
++    vec2 i = floor(p);
++    vec2 f = fract(p);
++    vec2 u = f * f * (3.0 - 2.0 * f);
++
++    return mix(mix(hash(i + vec2(0.0, 0.0)), hash(i + vec2(1.0, 0.0)), u.x),
++        mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
++}
++
++// Water breathing technique - fluid flowing lines
++float waterFlow(vec2 p, vec2 start, vec2 end, float time, float seed) {
++    vec2 direction = normalize(end - start);
++    vec2 perpendicular = vec2(-direction.y, direction.x);
++    float totalLength = distance(start, end);
++
++    if (totalLength < 0.001) return 0.0;
++
++    vec2 localP = p - start;
++    float alongPath = dot(localP, direction);
++    float acrossPath = dot(localP, perpendicular);
++
++    // Normalize position along path
++    float t = clamp(alongPath / totalLength, 0.0, 1.0);
++
++    // Main water flow line with smooth undulation
++    float waveOffset = sin(t * 12.0 + time * 4.0 + seed) * 0.008;
++    float mainFlow = 1.0 / (abs(acrossPath - waveOffset) * 200.0 + 0.005);
++
++    // Secondary flowing lines - like water currents
++    float flowLines = 0.0;
++    for (int i = 0; i < 3; i++) {
++        float offset = (float(i) - 1.0) * 0.012;
++        float wavePhase = sin(t * 8.0 + time * 3.0 + float(i) + seed) * 0.006;
++        float lineIntensity = 0.4 / (abs(acrossPath - offset - wavePhase) * 150.0 + 0.008);
++
++        // Vary intensity smoothly along the path
++        float flowStrength = sin(t * 6.0 + float(i) * 2.0) * 0.3 + 0.7;
++        flowLines += lineIntensity * flowStrength;
++    }
++
++    return mainFlow + flowLines;
++}
++
++// Gentle water ripple effect at cursor
++float waterRipple(vec2 p, vec2 center, float time, float intensity) {
++    float dist = distance(p, center);
++    float ripple = sin(dist * 100.0 - time * 8.0) * exp(-dist * 50.0);
++    return max(0.0, ripple * intensity);
++}
++
++const vec3 WATER_BLUE = vec3(0.3, 0.7, 1.0); // Clear water blue
++const vec3 WATER_WHITE = vec3(0.8, 0.9, 1.0); // Water foam white
++const vec3 DEEP_BLUE = vec3(0.1, 0.4, 0.8); // Deep water blue
++const vec3 CURSOR_COLOR = vec3(0.6, 0.8, 1.0); // Soft blue cursor
++const float DURATION = 0.4; // Gentle fade
++
++void mainImage(out vec4 fragColor, in vec2 fragCoord)
++{
++    #if !defined(WEB)
++    fragColor = texture(iChannel0, fragCoord.xy / iResolution.xy);
++    #endif
++
++    // Normalization for fragCoord to a space of -1 to 1;
++    vec2 vu = normalize(fragCoord, 1.);
++    vec2 offsetFactor = vec2(-.5, 0.5);
++
++    // Normalization for cursor position and size;
++    vec4 currentCursor = vec4(normalize(iCurrentCursor.xy, 1.), normalize(iCurrentCursor.zw, 0.));
++    vec4 previousCursor = vec4(normalize(iPreviousCursor.xy, 1.), normalize(iPreviousCursor.zw, 0.));
++
++    float sdfCurrentCursor = getSdfRectangle(vu, currentCursor.xy - (currentCursor.zw * offsetFactor), currentCursor.zw * 0.5);
++
++    float progress = clamp((iTime - iTimeCursorChange) / DURATION, 0.0, 1.0);
++    float easedProgress = ease(progress);
++
++    vec2 centerCC = getRectangleCenter(currentCursor);
++    vec2 centerCP = getRectangleCenter(previousCursor);
++    float moveDistance = distance(centerCC, centerCP);
++
++    vec4 newColor = vec4(fragColor);
++
++    // Only show water flow effects if there was significant cursor movement
++    if (moveDistance > 0.001 && progress < 1.0) {
++        float seed = iTimeCursorChange;
++
++        // Main water breathing effect - fluid flowing lines
++        float waterEffect = waterFlow(vu, centerCP, centerCC, iTime, seed);
++
++        // Gentle ripple at current cursor position
++        float ripple = waterRipple(vu, centerCC, iTime, 1.0 - progress);
++
++        // Fade effects smoothly
++        waterEffect *= (1.0 - easedProgress);
++
++        // Apply water colors with gentle intensity
++        // Main flow - deep blue to white gradient
++        float flowIntensity = clamp(waterEffect * 0.3, 0.0, 1.0);
++        newColor = mix(newColor, vec4(DEEP_BLUE, 0.6), flowIntensity * 0.4);
++        newColor = mix(newColor, vec4(WATER_BLUE, 0.8), flowIntensity * 0.3);
++
++        // Bright water foam lines
++        if (waterEffect > 0.2) {
++            float foamIntensity = clamp((waterEffect - 0.2) * 0.5, 0.0, 1.0);
++            newColor = mix(newColor, vec4(WATER_WHITE, 0.7), foamIntensity);
++        }
++
++        // Subtle ripple effect
++        float rippleIntensity = clamp(ripple * 0.2, 0.0, 1.0);
++        newColor = mix(newColor, vec4(WATER_BLUE, 0.5), rippleIntensity);
++    }
++
++    // Draw current cursor with gentle blue glow
++    float cursorGlow = exp(-abs(sdfCurrentCursor) * 40.0) * 0.2;
++    newColor = mix(newColor, vec4(CURSOR_COLOR, 0.8), antialising(sdfCurrentCursor));
++    newColor = mix(newColor, vec4(WATER_BLUE, 0.4), cursorGlow);
++
++    fragColor = newColor;
++}
+diff --git a/.config/ghostty/shaders/test.glsl b/.config/ghostty/shaders/test.glsl
+new file mode 100644
+index 0000000..f4db161
+--- /dev/null
++++ b/.config/ghostty/shaders/test.glsl
+@@ -0,0 +1,95 @@
++#define T iTime
++#define r(v,t) { float a = (t)*T, c=cos(a),s=sin(a); v*=mat2(c,s,-s,c); }
++#define SQRT3_2  1.26
++#define SQRT2_3  1.732
++#define smin(a,b) (1./(1./(a)+1./(b)))
++
++// --- noise functions from https://www.shadertoy.com/view/XslGRr
++// Created by inigo quilez - iq/2013
++// License Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Unported License.
++
++const mat3 m = mat3( 0.00,  0.80,  0.60,
++           		    -0.80,  0.36, -0.48,
++             		-0.60, -0.48,  0.64 );
++
++float hash( float n ) {
++    return fract(sin(n)*43758.5453);
++}
++
++float noise( in vec3 x ) { // in [0,1]
++    vec3 p = floor(x);
++    vec3 f = fract(x);
++
++    f = f*f*(3.-2.*f);
++
++    float n = p.x + p.y*57. + 113.*p.z;
++
++    float res = mix(mix(mix( hash(n+  0.), hash(n+  1.),f.x),
++                        mix( hash(n+ 57.), hash(n+ 58.),f.x),f.y),
++                    mix(mix( hash(n+113.), hash(n+114.),f.x),
++                        mix( hash(n+170.), hash(n+171.),f.x),f.y),f.z);
++    return res;
++}
++
++float fbm( vec3 p ) { // in [0,1]
++    float f;
++    f  = 0.5000*noise( p ); p = m*p*2.02;
++    f += 0.2500*noise( p ); p = m*p*2.03;
++    f += 0.1250*noise( p ); p = m*p*2.01;
++    f += 0.0625*noise( p );
++    return f;
++}
++// --- End of: Created by inigo quilez --------------------
++
++// --- more noise
++
++#define snoise(x) (2.*noise(x)-1.)
++
++float sfbm( vec3 p ) { // in [-1,1]
++    float f;
++    f  = 0.5000*snoise( p ); p = m*p*2.02;
++    f += 0.2500*snoise( p ); p = m*p*2.03;
++    f += 0.1250*snoise( p ); p = m*p*2.01;
++    f += 0.0625*snoise( p );
++    return f;
++}
++
++#define sfbm3(p) vec3(sfbm(p), sfbm(p-327.67), sfbm(p+327.67))
++
++// --- using the base ray-marcher of Trisomie21: https://www.shadertoy.com/view/4tfGRB#
++
++vec4 bg = vec4(0,.2,0,0);
++
++void mainImage( out vec4 f, vec2 w ) {
++    vec4 p = vec4(w,0,1)/iResolution.yyxy-.5, d,c; p.x-=.4; // init ray
++    // (p.xz,.13); r(p.yz,.2); r(p.xy,.1);   // camera rotations
++    d = p; p.z += 10.;                        // ray dir = ray0-vec3(0)
++    // p = -vec4(0,.5,1,0)*T;
++    f = vec4(bg);
++    float x1,x2,x=1e9;
++
++    for (float i=1.; i>0.; i-=.01)  {
++        if (f.x>=.99) break; // windows bug: miss it if at end ! thanks Dave_Hoskins
++
++        vec4 u = .03*floor(p/vec4(8,8,1,1)+3.5), t = p;
++        r(t.xy,u.x); r(t.xz,u.y); //r(t.yz,1.);    // objects rotations
++
++        // x1 =length(t.xyz)-7.; // if you prefer the clean trim
++		t.xyz += sfbm3(t.xyz/2.+vec3(.5*T,0,0))*(.6+8.*(.5-.5*cos(T/16.)));
++        c = 5.*texture(iChannel0,t.xy).rrrr;
++
++        x = abs(mod(length(t.xyz),1.)-1./2.);
++        x1 = length(t.xyz)-7.;
++        x = max(x,x1);
++        if ((x1>.1) && (p.z<0.)) break; // optimization
++        //x = max(x,-abs(t.x)+.2);
++        //x = max(x,-abs(t.y)+.2);
++
++        if(x<.01) { // hit !
++              f += (1.-f)*.2*mix(bg,c,i*i); x=.1;
++              //if (f.x>=.99) break; // compiler bug on windows -> moved to begin of loop
++            }  // color texture + black fog
++
++        p += d*x;           // march ray
++     }
++}
+diff --git a/.config/hypr/hyprland.conf b/.config/hypr/hyprland.conf
+index 94b8bb3..a6a84cb 100644
+--- a/.config/hypr/hyprland.conf
++++ b/.config/hypr/hyprland.conf
+@@ -6,11 +6,16 @@ source=~/.config/hypr/rose-pine-moon.conf
+ ################
+ ### MONITORS ###
+ ################
+-monitor=DP-1, 2560x1440@165, 0x0, 1
+ 
++# See https://wiki.hyprland.org/Configuring/Monitors/
++monitor=DP-3, 2560x1440 ,auto, 1
+ ###################
+ ### MY PROGRAMS ###
+ ###################
++
++# See https://wiki.hyprland.org/Configuring/Keywords/
++
++# Set programs that you use
+ $terminal = kitty
+ $fileManager = dolphin
+ $menu = wofi --show drun 
+@@ -33,6 +38,10 @@ exec-once = swaync
+ env = HYPRCURSOR_THEME,rose-pine-hyprcursor
+ env = HYPRCURSOR_SIZE,24
+ 
++
++###################
++### PERMISSIONS ###
++###################
+ #####################
+ ### LOOK AND FEEL ###
+ #####################
+@@ -54,31 +63,88 @@ general {
+     layout = dwindle
+ }
+ 
++# https://wiki.hyprland.org/Configuring/Variables/#decoration
+ decoration {
+     rounding = 0
+     rounding_power = 0
+ 
+     # Change transparency of focused and unfocused windows
+     active_opacity = 1.0
+     inactive_opacity = 1.0
++
++    shadow {
++        enabled = false
++        range = 4
++        render_power = 3
++        color = $muted
++    }
++
++    # https://wiki.hyprland.org/Configuring/Variables/#blur
++    blur {
++        enabled = true
++        size = 10
++        passes = 2
++
++        vibrancy = 0.1696
++    }
+ }
+ 
+ # https://wiki.hyprland.org/Configuring/Variables/#animations
+ animations {
+-    enabled = no, please :)
++    enabled = yes, please :)
++
++    # Default animations, see https://wiki.hyprland.org/Configuring/Animations/ for more
++
++    bezier = easeOutQuint,0.23,1,0.32,1
++    bezier = easeInOutCubic,0.65,0.05,0.36,1
++    bezier = linear,0,0,1,1
++    bezier = almostLinear,0.5,0.5,0.75,1.0
++    bezier = quick,0.15,0,0.1,1
++
++    animation = global, 1, 1, default
++    animation = border, 1, 1, easeOutQuint
++    animation = windows, 1, 1, easeOutQuint
++    animation = windowsIn, 1, 1, easeOutQuint, popin 10%
++    animation = windowsOut, 1, 1, linear, popin 87%
++    animation = fadeIn, 1, 1, almostLinear
++    animation = fadeOut, 1, 1, almostLinear
++    animation = fade, 1, 1, quick
++    animation = layers, 1, 1, easeOutQuint
++    animation = layersIn, 1, 1, easeOutQuint, fade
++    animation = layersOut, 1, 1, linear, fade
++    animation = fadeLayersIn, 1, 1, almostLinear
++    animation = fadeLayersOut, 1, 1, almostLinear
++    animation = workspaces, 1, 1, easeInOutCubic, fade
++    animation = workspacesIn, 1, 1, easeInOutCubic, fade
++    animation = workspacesOut, 1, 1, easeInOutCubic, fade
+ }
+ 
++# Ref https://wiki.hyprland.org/Configuring/Workspace-Rules/
++# "Smart gaps" / "No gaps when only"
++# uncomment all if you wish to use that.
++# workspace = w[tv1], gapsout:0, gapsin:0
++# workspace = f[1], gapsout:0, gapsin:0
++# windowrule = bordersize 0, floating:0, onworkspace:w[tv1]
++# windowrule = rounding 0, floating:0, onworkspace:w[tv1]
++# windowrule = bordersize 0, floating:0, onworkspace:f[1]
++# windowrule = rounding 0, floating:0, onworkspace:f[1]
++
+ # See https://wiki.hyprland.org/Configuring/Dwindle-Layout/ for more
+ dwindle {
+     pseudotile = true # Master switch for pseudotiling. Enabling is bound to mainMod + P in the keybinds section below
+     preserve_split = true # You probably want this
+ }
+ 
+ # See https://wiki.hyprland.org/Configuring/Master-Layout/ for more
+ master {
+     new_status = master
+ }
+ 
++misc {
++    middle_click_paste = false
++}
++
++
+ #############
+ ### INPUT ###
+ #############
+@@ -103,9 +169,12 @@ gestures {
+     workspace_swipe = false
+ }
+ 
++
+ ###################
+ ### KEYBINDINGS ###
+ ###################
++
++# See https://wiki.hyprland.org/Configuring/Keywords/
+ $mainMod = ALT # Sets "Windows" key as main modifier
+ 
+ # Example binds, see https://wiki.hyprland.org/Configuring/Binds/ for more
+@@ -148,16 +217,16 @@ bind = $mainMod, 9, workspace, 9
+ bind = $mainMod, 0, workspace, 10
+ 
+ # Move active window to a workspace with mainMod + SHIFT + [0-9]
+-bind = $mainMod SHIFT, 1, movetoworkspacesilent, 1
+-bind = $mainMod SHIFT, 2, movetoworkspacesilent, 2
+-bind = $mainMod SHIFT, 3, movetoworkspacesilent, 3
+-bind = $mainMod SHIFT, 4, movetoworkspacesilent, 4
+-bind = $mainMod SHIFT, 5, movetoworkspacesilent, 5
+-bind = $mainMod SHIFT, 6, movetoworkspacesilent, 6
+-bind = $mainMod SHIFT, 7, movetoworkspacesilent, 7
+-bind = $mainMod SHIFT, 8, movetoworkspacesilent, 8
+-bind = $mainMod SHIFT, 9, movetoworkspacesilent, 9
+-bind = $mainMod SHIFT, 0, movetoworkspacesilent, 10
++bind = $mainMod SHIFT, 1, movetoworkspace, 1
++bind = $mainMod SHIFT, 2, movetoworkspace, 2
++bind = $mainMod SHIFT, 3, movetoworkspace, 3
++bind = $mainMod SHIFT, 4, movetoworkspace, 4
++bind = $mainMod SHIFT, 5, movetoworkspace, 5
++bind = $mainMod SHIFT, 6, movetoworkspace, 6
++bind = $mainMod SHIFT, 7, movetoworkspace, 7
++bind = $mainMod SHIFT, 8, movetoworkspace, 8
++bind = $mainMod SHIFT, 9, movetoworkspace, 9
++bind = $mainMod SHIFT, 0, movetoworkspace, 10
+ 
+ # Example special workspace (scratchpad)
+ bind = $mainMod, S, togglespecialworkspace, magic
+@@ -188,17 +257,15 @@ bindl = , XF86AudioPrev, exec, playerctl previous
+ ##############################
+ ### WINDOWS AND WORKSPACES ###
+ ##############################
++
++# See https://wiki.hyprland.org/Configuring/Window-Rules/ for more
++# See https://wiki.hyprland.org/Configuring/Workspace-Rules/ for workspace rules
++
++# Example windowrule
++# windowrule = float,class:^(kitty)$,title:^(kitty)$
++
++# Ignore maximize requests from apps. You'll probably like this.
+ windowrule = suppressevent maximize, class:.*
+ 
+ # Fix some dragging issues with XWayland
+ windowrule = nofocus,class:^$,title:^$,xwayland:1,floating:1,fullscreen:0,pinned:0
+-
+-# Picture-in-Picture rules for Chrome
+-windowrulev2 = float,title:^(Picture in picture)$
+-windowrulev2 = pin,title:^(Picture in picture)$
+-# windowrulev2 = nofocus,title:^(Picture in picture)$ # Optional: prevents auto-focusing PiP
+-windowrulev2 = size 20% 20%,title:^(Picture in picture)$ # Optional: set initial size (e.g., 25% of screen width/height)
+-windowrulev2 = move 10% 10%,title:^(Picture in picture)$ # Optional: set initial position (e.g., bottom right)
+-windowrulev2 = keepaspectratio,title:^(Picture in picture)$ # Maintain aspect ratio
+-# windowrulev2 = noborder,title:^(Picture in picture)$ # Optional: remove border
+-
+diff --git a/.config/hypr/hyprlock.conf b/.config/hypr/hyprlock.conf
+index e601439..085b8e2 100644
+--- a/.config/hypr/hyprlock.conf
++++ b/.config/hypr/hyprlock.conf
+@@ -1,4 +1,4 @@
+-$font = IosevkaIBM Nerd Font
++$font = IosevkaMenlo Nerd Font
+ 
+ general {
+     hide_cursor = false
+diff --git a/.config/i3/config b/.config/i3/config
+index 70c7796..9acd6f8 100644
+--- a/.config/i3/config
++++ b/.config/i3/config
+@@ -14,11 +14,11 @@ set $term /opt/kitty/kitty.app/bin/kitty
+ # Note: pass the final command to swaymsg so that the resulting window can be opened
+ # on the original workspace that the command was run on.
+ set $menu dmenu_path \
+-| dmenu -i -l 5 -fn 'IosevkaIBM Nerd Font-18' -nb '#232136' -nf '#E0DEF4' -sb '#44415a' -sf '#f6c177'\
++| dmenu -i -l 5 -fn 'IosevkaMenlo Nerd Font-18' -nb '#232136' -nf '#E0DEF4' -sb '#44415a' -sf '#f6c177'\
+ | xargs i3-msg exec --
+ 
+ ### Fonts
+-font pango:IosevkaIBM Nerd Font 13
++font pango:IosevkaMenlo Nerd Font 13
+ 
+ ### Output configuration
+ exec_always ~/.screenlayout/test.sh
+diff --git a/.config/kitty/kitty.conf b/.config/kitty/kitty.conf
+index fe2448e..d483c52 100644
+--- a/.config/kitty/kitty.conf
++++ b/.config/kitty/kitty.conf
+@@ -1,14 +1,18 @@
++confirm_os_window_close 0
++
+ font_size 16.0
+ # modify_font cell_height 100%
+ 
+ input_delay 0
+ repaint_delay 2
+ sync_to_monitor no
+ wayland_enable_ime no
+ cursor_trail 10
+ cursor_trail_decay 0.1 0.6
+ cursor_trail_start_threshold 2
+ 
++background_opacity 0.9
++
+ tab_bar_min_tabs            1
+ tab_bar_edge                bottom
+ tab_bar_style               powerline
+diff --git a/.config/kitty/kitty.conf.bak b/.config/kitty/kitty.conf.bak
+index a331591..68b3837 100644
+--- a/.config/kitty/kitty.conf.bak
++++ b/.config/kitty/kitty.conf.bak
+@@ -1,14 +1,18 @@
++confirm_os_window_close 0
++
+ font_size 16.0
+ # modify_font cell_height 100%
+ 
+ input_delay 0
+ repaint_delay 2
+ sync_to_monitor no
+ wayland_enable_ime no
+ cursor_trail 10
+ cursor_trail_decay 0.1 0.6
+ cursor_trail_start_threshold 2
+ 
++background_opacity 0.9
++
+ tab_bar_min_tabs            1
+ tab_bar_edge                bottom
+ tab_bar_style               powerline
+@@ -32,10 +36,10 @@ map kitty_mod+t     new_tab_with_cwd
+ disable_ligatures always
+ 
+ # BEGIN_KITTY_FONTS
+-font_family      family='IosevkaIBM Nerd Font' style=Light
+-bold_font        family='IosevkaIBM Nerd Font' style=Medium
+-italic_font      family='IosevkaIBM Nerd Font' style='Light Italic'
+-bold_italic_font family='IosevkaIBM Nerd Font' style='Medium Italic'
++font_family      family="IosevkaIBMLat550 Nerd Font"
++bold_font        auto
++italic_font      auto
++bold_italic_font auto
+ # END_KITTY_FONTS
+ 
+ 
+diff --git a/.config/nvim/lua/config/options.lua b/.config/nvim/lua/config/options.lua
+index 15d16db..9eb86c3 100644
+--- a/.config/nvim/lua/config/options.lua
++++ b/.config/nvim/lua/config/options.lua
+@@ -138,7 +138,7 @@ if vim.g.neovide then
+   end
+ 
+   -- neovide
+-  vim.o.guifont = "IosevkaIBM Nerd Font:h13" -- text below applies for VimScript
++  vim.o.guifont = "IosevkaMenlo Nerd Font:h13" -- text below applies for VimScript
+ 
+   local alpha = function()
+     return string.format("%x", math.floor(255 * vim.g.transparency or 0.8))
+diff --git a/.config/nvim/lua/config/plugins/harpoon.lua b/.config/nvim/lua/config/plugins/harpoon.lua
+index 08c8b58..c15373a 100644
+--- a/.config/nvim/lua/config/plugins/harpoon.lua
++++ b/.config/nvim/lua/config/plugins/harpoon.lua
+@@ -15,5 +15,10 @@ return {
+     map("n", "<C-2>", function() harpoon:list():select(2) end)
+     map("n", "<C-3>", function() harpoon:list():select(3) end)
+     map("n", "<C-4>", function() harpoon:list():select(4) end)
++    map("n", "<C-5>", function() harpoon:list():select(1) end)
++    map("n", "<C-6>", function() harpoon:list():select(2) end)
++    map("n", "<C-7>", function() harpoon:list():select(3) end)
++    map("n", "<C-8>", function() harpoon:list():select(4) end)
++    map("n", "<C-9>", function() harpoon:list():select(4) end)
+   end,
+ }
+diff --git a/.config/nvim/lua/config/plugins/latex.lua b/.config/nvim/lua/config/plugins/latex.lua
+index e57e863..266e73a 100644
+--- a/.config/nvim/lua/config/plugins/latex.lua
++++ b/.config/nvim/lua/config/plugins/latex.lua
+@@ -4,7 +4,7 @@ return {
+   "lervag/vimtex",
+   lazy = false, -- we don't want to lazy load VimTeX
+   config = function()
+-    vim.g.vimtex_view_general_viewer = 'okular'
++    vim.g.vimtex_view_general_viewer = 'evince'
+     -- vim.g.vimtex_view_general_options = '--unique file:@pdf/#src:@line@tex'
+     vim.g.tex_flavor = 'latex'
+     map('n', "<space>ll", "<cmd>VimtexCompile<CR>")
+diff --git a/.config/waybar/config.jsonc b/.config/waybar/config.jsonc
+index 778f9a2..4b25ae3 100644
+--- a/.config/waybar/config.jsonc
++++ b/.config/waybar/config.jsonc
+@@ -17,99 +17,99 @@
+     "clock#simpleclock",
+     "tray",
+     "custom/notification",
+-    "custom/power",
++    "custom/power"
+   ],
+   "custom/spotify": {
+     "format": "  {}",
+     "return-type": "json",
+     "on-click": "playerctl -p spotify play-pause",
+     "on-click-right": "spotifatius toggle-liked",
+     "on-click-middle": "playerctl -p spotify next",
+-    "exec": "spotifatius monitor",
++    "exec": "spotifatius monitor"
+   },
+   "mpris": {
+     "player": "spotify",
+     "dynamic-order": ["artist", "title"],
+     "format": "{player_icon} {dynamic}",
+     "format-paused": "{status_icon} <i>{dynamic}</i>",
+     "status-icons": {
+-      "paused": "",
++      "paused": ""
+     },
+     "player-icons": {
+-      "default": "",
+-    },
++      "default": ""
++    }
+   },
+   "hyprland/workspaces": {
+     "on-click": "activate",
+     "format": "{id}",
+     "all-outputs": true,
+     "disable-scroll": false,
+-    "active-only": false,
++    "active-only": false
+   },
+   "hyprland/window": {
+-    "format": "{title}",
++    "format": "{title}"
+   },
+   "tray": {
+     "show-passive-items": true,
+-    "spacing": 10,
++    "spacing": 10
+   },
+   "clock#simpleclock": {
+     "tooltip": false,
+-    "format": "  {:%H:%M}",
++    "format": "  {:%H:%M:%S}"
+   },
+   "clock": {
+     "format": "  {:L%a %d %b}",
+     "calendar": {
+       "format": {
+         "days": "<span weight='normal'>{}</span>",
+         "months": "<span color='#cdd6f4'><b>{}</b></span>",
+         "today": "<span color='#f38ba8' weight='700'><u>{}</u></span>",
+         "weekdays": "<span color='#f9e2af'><b>{}</b></span>",
+-        "weeks": "<span color='#a6e3a1'><b>W{}</b></span>",
++        "weeks": "<span color='#a6e3a1'><b>W{}</b></span>"
+       },
+       "mode": "month",
+       "mode-mon-col": 1,
+-      "on-scroll": 1,
++      "on-scroll": 1
+     },
+-    "tooltip-format": "<span color='#cdd6f4' font='Lexend 16'><tt><small>{calendar}</small></tt></span>",
++    "tooltip-format": "<span color='#cdd8f4' font='Lexend 16'><tt><small>{calendar}</small></tt></span>"
+   },
+   "cpu": {
+     "format": "  {usage}%",
+     "tooltip": true,
+-    "interval": 1,
++    "interval": 1
+   },
+   "memory": {
+-    "format": "  {used:0.1f}Gi",
++    "format": "  {used:0.1f}Gi"
+   },
+   "pulseaudio": {
+     "format": "{icon} {volume}%",
+     "format-muted": "  muted",
+     "format-icons": {
+       "headphone": "",
+-      "default": [" ", " ", " "],
++      "default": [" ", " ", " "]
+     },
+-    "on-click": "kmix",
++    "on-click": "pavucontrol"
+   },
+   "custom/sep": {
+     "format": "|",
+-    "tooltip": false,
++    "tooltip": false
+   },
+   "custom/power": {
+     "tooltip": false,
+     "on-click": "wlogout -p layer-shell &",
+-    "format": "⏻",
++    "format": "⏻"
+   },
+   "custom/notification": {
+     "escape": true,
+     "exec": "swaync-client -swb",
+     "exec-if": "which swaync-client",
+     "format": "{icon}",
+     "format-icons": {
+       "none": "󰅺",
+-      "notification": "󰡟",
++      "notification": "󰡟"
+     },
+     "on-click": "sleep 0.1 && swaync-client -t -sw",
+     "return-type": "json",
+-    "tooltip": false,
+-  },
++    "tooltip": false
++  }
+ }
+diff --git a/.config/waybar/result b/.config/waybar/result
+deleted file mode 120000
+index 697b5e2..0000000
+--- a/.config/waybar/result
++++ /dev/null
+@@ -1 +0,0 @@
+-/nix/store/hkffx1672c6rbgg3x653dsbs2ygbzdg9-nixos-system-nixos-25.11pre822156.30e2e2857ba4
+\ No newline at end of file
+diff --git a/.config/waybar/style.css b/.config/waybar/style.css
+index 1130745..3d44699 100644
+--- a/.config/waybar/style.css
++++ b/.config/waybar/style.css
+@@ -1,25 +1,22 @@
+ * {
+   min-height: 0;
+   min-width: 0;
+-  font-family: Lexend, "IosevkaIBM Nerd Font";
++  font-family: Lexend, "IosevkaMenlo Nerd Font";
+   font-size: 18px;
+   font-weight: 500;
+ }
+ 
+ window#waybar {
+-  /* transition-property: background-color; */
+-  /* transition-duration: 0.5s; */
+-  /* background-color: #1e1e2e; */
+-  /* background-color: #181825; */
+-  /* background-color: #232136; */
+-  background-color: rgba(255, 255, 255, 0);
++  transition-property: background-color;
++  transition-duration: 0.3s;
++  background-color: rgba(0, 0, 0, 0);
+ }
+ 
+ #workspaces button {
+   padding: 0.3rem 0.6rem;
+   margin: 0.4rem 0.25rem;
+   border-radius: 0px;
+-  /* background-color: #181825; */
++  /* border-color: #ff0000; */
+   background-color: #2a273f;
+   color: #e0def4;
+ }
+diff --git a/.config/wofi/style.css b/.config/wofi/style.css
+index 5ee3ff2..401b297 100644
+--- a/.config/wofi/style.css
++++ b/.config/wofi/style.css
+@@ -4,7 +4,7 @@
+     border-radius: 0px;
+     border: 2px solid #ea9a97;
+     color: #232136;
+-    font-family: 'IosevkaIBM Nerd Font';
++    font-family: 'IosevkaMenlo Nerd Font';
+     font-size: 18pt;
+ }
+ 
+diff --git a/.zshrc b/.zshrc
+index 7d0f665..d50b243 100644
+--- a/.zshrc
++++ b/.zshrc
+@@ -69,3 +69,4 @@ function y() {
+ 
+ # zoxide
+ eval "$(zoxide init zsh)"
++
