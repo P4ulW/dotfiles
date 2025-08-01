@@ -32,14 +32,14 @@ map kitty_mod+t     new_tab_with_cwd
 disable_ligatures always
 
 # BEGIN_KITTY_FONTS
-font_family      family='IosevkaMenlo Nerd Font' style=Light
-bold_font        family='IosevkaMenlo Nerd Font' style=Medium
-italic_font      family='IosevkaMenlo Nerd Font' style='Light Italic'
-bold_italic_font family='IosevkaMenlo Nerd Font' style='Medium Italic'
+font_family      family='IosevkaIBM Nerd Font' style=Light
+bold_font        family='IosevkaIBM Nerd Font' style=Medium
+italic_font      family='IosevkaIBM Nerd Font' style='Light Italic'
+bold_italic_font family='IosevkaIBM Nerd Font' style='Medium Italic'
 # END_KITTY_FONTS
 
 
 # BEGIN_KITTY_THEME
-# Kanagawa_dragon
+# Rosé Pine Moon
 include current-theme.conf
 # END_KITTY_THEME

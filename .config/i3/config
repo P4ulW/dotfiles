@@ -14,11 +14,11 @@ set $term /opt/kitty/kitty.app/bin/kitty
 # Note: pass the final command to swaymsg so that the resulting window can be opened
 # on the original workspace that the command was run on.
 set $menu dmenu_path \
-| dmenu -i -l 5 -fn 'IosevkaMenlo Nerd Font-18' -nb '#232136' -nf '#E0DEF4' -sb '#44415a' -sf '#f6c177'\
+| dmenu -i -l 5 -fn 'IosevkaIBM Nerd Font-18' -nb '#232136' -nf '#E0DEF4' -sb '#44415a' -sf '#f6c177'\
 | xargs i3-msg exec --
 
 ### Fonts
-font pango:IosevkaMenlo Nerd Font 13
+font pango:IosevkaIBM Nerd Font 13
 
 ### Output configuration
 exec_always ~/.screenlayout/test.sh
