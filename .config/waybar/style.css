@@ -1,7 +1,7 @@
 * {
   min-height: 0;
   min-width: 0;
-  font-family: Lexend, "IosevkaMenlo Nerd Font";
+  font-family: Lexend, "IosevkaIBM Nerd Font";
   font-size: 18px;
   font-weight: 500;
 }
@@ -13,8 +13,8 @@ window#waybar {
 }
 
 #workspaces button {
-  padding: 0.3rem 0.6rem;
-  margin: 0.4rem 0.25rem;
+  padding: 0.1rem 0.2rem;
+  margin: 0.2rem 0.2rem;
   border-radius: 0px;
   /* border-color: #ff0000; */
   background-color: #2a273f;
@@ -45,9 +45,11 @@ window#waybar {
 #cpu,
 #tray,
 #memory,
+#battery,
+#backlight,
 #window,
 #mpris {
-  padding: 0.3 2.6rem;
+  padding: 0.3 1.6rem;
   margin: 0.4rem 0.25rem;
   border-radius: 0px;
   background-color: #2a283e;
@@ -79,6 +81,22 @@ window#waybar.empty #window {
   color: #ea9a97;
 }
 
+#pulseaudio {
+  color: #c4a7e7;
+}
+
+#pulseaudio.muted {
+  color: #908caa;
+}
+
+#battery {
+  color: #eb6f92;
+}
+
+#backlight {
+  color: #ea9a97;
+}
+
 #clock {
   color:#f6c177;
 }
@@ -91,13 +109,6 @@ window#waybar.empty #window {
   color: #cdd6f4;
 }
 
-#pulseaudio {
-  color: #c4a7e7;
-}
-
-#pulseaudio.muted {
-  color: #908caa;
-}
 
 #custom-logo {
   color: #3e8fb0;

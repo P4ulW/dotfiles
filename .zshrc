@@ -5,9 +5,7 @@ edit() {
 	exec fdfind --type file | fzf --bind 'enter:become(nvim {})' --preview 'batcat {} --color=always --style=numbers --theme="Catppuccin Mocha"'
 }
 
-export ZSH="$HOME/.oh-my-zsh"
-ZSH_THEME="robbyrussell"
-plugins=(git)
+eval "$(starship init zsh)"
 
 export LD_LIBRARY_PATH=$NIX_LD_LIBRARY_PATH
 export PATH="~/tmux:$PATH"
@@ -16,7 +14,6 @@ export PATH="~/.venv_nixos/bin/:$PATH"
 export PATH="/opt/kitty/kitty.app/bin/:$PATH"
 export PATH="~/.cargo/bin/:$PATH"
 export EDITOR="nvim"
-source $ZSH/oh-my-zsh.sh
 source ~/.venv_nixos/bin/activate
 # alias nvim="/home/paulw/appimages/nvim.appimage"
 alias i3lock="python ~/.config/i3/i3pylock.py"

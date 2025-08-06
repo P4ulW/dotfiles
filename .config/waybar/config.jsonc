@@ -14,11 +14,18 @@
     "memory",
     "pulseaudio",
     "clock",
+    "battery",
+    "backlight",
     "clock#simpleclock",
     "tray",
     "custom/notification",
     "custom/power"
   ],
+  "backlight": {
+    "device": "intel_backlight",
+    "format": "{percent}% {icon}",
+    "format-icons": ["", ""]
+  },
   "custom/spotify": {
     "format": "  {}",
     "return-type": "json",
@@ -89,6 +96,17 @@
       "default": [" ", " ", " "]
     },
     "on-click": "pavucontrol"
+  },
+  "battery": {
+    // "bat": "BAT1",
+    "interval": 60,
+    "states": {
+        "warning": 30,
+        "critical": 15
+    },
+    "format": "{capacity}% {icon}",
+    "format-icons": ["", "", "", "", ""],
+    // "max-length": 25
   },
   "custom/sep": {
     "format": "|",
